@@ -1,0 +1,62 @@
+[
+{
+    "aspectName" : "datasetProperties",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"qualifiedName\":\"sample_keyspace.sample_table\",\"name\":\"sample_table\",\"description\":\"table comment\"}"
+    }
+},
+{
+    "aspectName" : "schemaMetadata",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"platformSchema\":{\"com.linkedin.schema.OtherSchema\":{\"rawSchema\":\"CREATE TABLE sample_keyspace.sample_table (seid text PRIMARY KEY, brokerstatus boolean, creationdate timestamp, creditservicesstatus boolean, dsid text, lastmodifieddate timestamp, partnerservicestatus boolean, paymentservicesstatus boolean, peerpaymentstatus boolean, signature text, tsmstatus boolean) WITH additional_write_policy = '99p' AND allow_auto_snapshot = true AND bloom_filter_fp_chance = 0.1n AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'} AND cdc = false AND comment = '' AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy', 'enabled': 'true', 'max_threshold': '32', 'min_threshold': '4'} AND compression = {'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'} AND memtable = 'default' AND crc_check_chance = 1.0 AND default_time_to_live = 0 AND disable_christmas_patch = false AND disable_repairs = false AND extensions = {} AND gc_grace_seconds = 864000 AND incremental_backups = true AND max_index_interval = 2048 AND memtable_flush_period_in_ms = 0 AND min_index_interval = 128 AND read_repair = 'BLOCKING' AND speculative_retry = '99p';\"}},\"schemaName\":\"sample_table\",\"fields\":[{\"nullable\":false,\"fieldPath\":\"pk1\",\"isPartOfKey\":true,\"isPartitioningKey\":true,\"type\":{\"type\":{\"com.linkedin.schema.NumberType\":{}}},\"nativeDataType\":\"int\"},{\"nullable\":false,\"fieldPath\":\"pk2\",\"isPartOfKey\":true,\"isPartitioningKey\":true,\"type\":{\"type\":{\"com.linkedin.schema.NumberType\":{}}},\"nativeDataType\":\"float\"},{\"nullable\":true,\"fieldPath\":\"ck1\",\"isPartOfKey\":true,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.NumberType\":{}}},\"nativeDataType\":\"varint\"},{\"nullable\":true,\"fieldPath\":\"ck2\",\"isPartOfKey\":true,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.NumberType\":{}}},\"nativeDataType\":\"decimal\"},{\"nullable\":true,\"fieldPath\":\"c1\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"nativeDataType\":\"boolean\"},{\"nullable\":true,\"fieldPath\":\"c2\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.DateType\":{}}},\"nativeDataType\":\"date\"},{\"nullable\":true,\"fieldPath\":\"c3\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.TimeType\":{}}},\"nativeDataType\":\"time\"},{\"nullable\":true,\"fieldPath\":\"c4\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.StringType\":{}}},\"nativeDataType\":\"ascii\"},{\"nullable\":true,\"fieldPath\":\"c6\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.StringType\":{}}},\"nativeDataType\":\"varchar\"},{\"nullable\":true,\"fieldPath\":\"c6\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BytesType\":{}}},\"nativeDataType\":\"blob\"},{\"nullable\":true,\"fieldPath\":\"c7\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.ArrayType\":{}}},\"nativeDataType\":\"list\"},{\"nullable\":true,\"fieldPath\":\"c8\",\"isPartOfKey\":false,\"isPartitioningKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.MapType\":{}}},\"nativeDataType\":\"map\"}],\"version\":1,\"platform\":\"urn:li:dataPlatform:urn:li:dataPlatform:cassandra-apple\",\"hash\":\"9c96bb1422f7d9285c4ed5b6013b96a01ef27032\"}"
+    }
+},
+{
+    "aspectName" : "container",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"container\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace\"}"
+    }
+},
+{
+    "aspectName" : "subTypes",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"typeNames\":[\"table\"]}"
+    }
+},
+{
+    "aspectName" : "dataPlatformInstance",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"platform\":\"urn:li:dataPlatform:cassandra-apple\",\"instance\":\"urn:li:dataPlatformInstance:f81d4fae-7dec-11d0-a765-00a0c91e6bf6\"}"
+    }
+},
+{
+    "aspectName" : "browsePathsV2",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra-apple,f81d4fae-7dec-11d0-a765-00a0c91e6bf6.sample_keyspace.sample_table,PROD)",
+    "entityType" : "dataset",
+    "changeType" : "UPSERT",
+    "aspect" : {
+        "contentType" : "application/json",
+        "value" : "{\"path\":[{\"id\":\"PROD\"},{\"id\":\"app_name\"},{\"id\":\"cluster_name\"},{\"urn\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace\",\"id\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace\"}]}"
+    }
+}
+]

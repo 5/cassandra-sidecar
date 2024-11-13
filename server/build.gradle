@@ -129,6 +129,9 @@ dependencies {
     // openSSL native libraries for macOS x86-64 architectures
     implementation(group: 'io.netty', name: 'netty-tcnative-boringssl-static', version: "${project.boringSslVersion}", classifier: 'osx-x86_64')
 
+    // Acryl DataHub client is used to convert Cassandra metadata and schemata into JSON-formatted strings
+    implementation(group: 'io.acryl', name: 'datahub-client', version: '0.14.1-6')
+
     testImplementation "org.junit.jupiter:junit-jupiter-api:${project.junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${project.junitVersion}"
     testImplementation "org.assertj:assertj-core:3.24.2"

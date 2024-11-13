@@ -119,4 +119,11 @@ public interface StorageOperations
      * @return returns true if gossip is running, false otherwise
      */
     boolean isGossipRunning();
+
+    /**
+     * Returns the name of the cluster
+     *
+     * @return the name of the cluster
+     */
+    String clusterName();
 }

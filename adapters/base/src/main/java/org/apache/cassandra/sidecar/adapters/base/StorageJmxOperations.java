@@ -171,4 +171,11 @@ public interface StorageJmxOperations
      * @return string representation of the operation-mode
      */
     String getOperationMode();
+
+    /**
+     * Returns the name of the cluster
+     *
+     * @return the name of the cluster
+     */
+    String getClusterName();
 }

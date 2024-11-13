@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -87,12 +88,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public abstract class IntegrationTestBase
 {
+    private static final String IF_NOT_EXISTS = "IF NOT EXISTS";
     protected static final String TEST_KEYSPACE = "testkeyspace";
     protected static final int DEFAULT_RF = 3;
     protected static final String WITH_COMPACTION_DISABLED = " WITH COMPACTION = {\n" +
                                                              "   'class': 'SizeTieredCompactionStrategy', \n" +
                                                              "   'enabled': 'false' }";
-    private static final String TEST_TABLE_PREFIX = "testtable";
+    protected static final String TEST_TABLE_PREFIX = "testtable";
+    protected static final String TEST_CLUSTER_PREFIX = "cluster";
+    protected static final String DATA_CENTER_PREFIX = "datacenter";
     private static final AtomicInteger TEST_TABLE_ID = new AtomicInteger(0);
     protected Logger logger = LoggerFactory.getLogger(this.getClass());
     protected Vertx vertx;
@@ -297,7 +301,7 @@ public abstract class IntegrationTestBase
 
     protected void createTestKeyspace()
     {
-        createTestKeyspace(ImmutableMap.of("datacenter1", 1));
+        createTestKeyspace(ImmutableMap.of(DATA_CENTER_PREFIX + 1, 1));
     }
 
     protected void createTestKeyspace(Map<String, Integer> rf)
@@ -312,9 +316,8 @@ public abstract class IntegrationTestBase
 
                 Session session = maybeGetSession();
 
-                session.execute("CREATE KEYSPACE IF NOT EXISTS " + TEST_KEYSPACE +
-                                " WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', " +
-                                generateRfString(rf) + " };");
+                session.execute("CREATE KEYSPACE " + IF_NOT_EXISTS + " " + TEST_KEYSPACE
+                              + " WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', " + generateRfString(rf) + " };");
                 return;
             }
             catch (Throwable t)
@@ -347,6 +350,50 @@ public abstract class IntegrationTestBase
         QualifiedTableName tableName = uniqueTestTableFullName(tablePrefix);
         session.execute(String.format(createTableStatement, tableName));
         return tableName;
+    }
+
+    /**
+     * Protected helper method for creating test user-defined types (UDTs)
+     *
+     * @param name the name of the test UDT (without keyspace prefix)
+     * @param schema the schema of the test UDT
+     * @return the fully-qualified name of the created UDT (with keyspace prefix)
+     */
+    @NotNull
+    @SuppressWarnings("UnusedReturnValue")
+    protected String createTestUdt(@NotNull String name,
+                                   @NotNull String schema)
+    {
+        return createTestUdt(name, schema, false);
+    }
+
+    /**
+     * Protected helper method for creating test user-defined types (UDTs)
+     */
+    @NotNull
+    @SuppressWarnings("SameParameterValue")
+    protected String createTestUdt(@NotNull String name,
+                                   @NotNull String schema,
+                                   boolean ifNotExists)
+    {
+        String udt = TEST_KEYSPACE + "." + name;
+
+        StringBuilder statement = new StringBuilder(1024);  // Specify capacity to prevent unnecessary resizing
+        statement.append("CREATE TYPE ");
+        statement.append(udt);
+        if (ifNotExists)
+        {
+            statement.append(" ");
+            statement.append(IF_NOT_EXISTS);
+        }
+        statement.append(" (");
+        statement.append(schema);
+        statement.append(");");
+
+        Session session = maybeGetSession();  // Leave session open to enable its subsequent use by the test
+        session.execute(statement.toString());
+
+        return udt;
     }
 
     // similar to awaitLatchOrTimeout, it throws either test exceptions (due to startAsync failures) or timeout exception

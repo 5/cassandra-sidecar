@@ -220,8 +220,8 @@ public class CassandraStorageOperations implements StorageOperations
     @Override
     public String operationMode()
     {
-        StorageJmxOperations ssProxy = jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME);
-        return ssProxy.getOperationMode();
+        return jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME)
+                        .getOperationMode();
     }
 
     /**
@@ -230,8 +230,8 @@ public class CassandraStorageOperations implements StorageOperations
     @Override
     public void decommission(boolean force)
     {
-        StorageJmxOperations ssProxy = jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME);
-        ssProxy.decommission(force);
+        jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME)
+                 .decommission(force);
     }
 
     /**
@@ -240,6 +240,17 @@ public class CassandraStorageOperations implements StorageOperations
     @Override
     public boolean isGossipRunning()
     {
-        return jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME).isGossipRunning();
+        return jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME)
+                        .isGossipRunning();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String clusterName()
+    {
+        return jmxClient.proxy(StorageJmxOperations.class, STORAGE_SERVICE_OBJ_NAME)
+                        .getClusterName();
     }
 }

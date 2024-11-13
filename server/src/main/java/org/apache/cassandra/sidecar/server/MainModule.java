@@ -27,6 +27,15 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.util.concurrent.SidecarRateLimiter;
+import datahub.client.rest.RestEmitter;
+import datahub.client.rest.RestEmitterConfig;
+import org.apache.cassandra.sidecar.common.server.utils.ThrowableUtils;
+import org.apache.cassandra.sidecar.config.SchemaReportingConfiguration;
+import org.apache.cassandra.sidecar.datahub.EmitterFactory;
+import org.apache.cassandra.sidecar.datahub.IdentifiersProvider;
+import org.apache.cassandra.sidecar.datahub.SchemaReportingTask;
+import org.apache.commons.lang3.concurrent.LazyInitializer;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -155,6 +164,7 @@ import org.apache.cassandra.sidecar.utils.XXHash32Provider;
 
 import static org.apache.cassandra.sidecar.common.ApiEndpointsV1.API_V1_ALL_ROUTES;
 import static org.apache.cassandra.sidecar.common.server.utils.ByteUtils.bytesToHumanReadableBinaryPrefix;
+import static org.apache.cassandra.sidecar.server.SidecarServerEvents.ON_ALL_CASSANDRA_CQL_READY;
 import static org.apache.cassandra.sidecar.server.SidecarServerEvents.ON_CASSANDRA_CQL_READY;
 import static org.apache.cassandra.sidecar.server.SidecarServerEvents.ON_SERVER_STOP;
 
@@ -862,12 +872,53 @@ public class MainModule extends AbstractModule
     public PeriodicTaskExecutor periodicTaskExecutor(Vertx vertx,
                                                      ExecutorPools executorPools,
                                                      ClusterLease clusterLease,
-                                                     ClusterLeaseClaimTask clusterLeaseClaimTask)
+                                                     ClusterLeaseClaimTask clusterLeaseClaimTask,
+                                                     SchemaReportingTask schemaReportingTask)
     {
         PeriodicTaskExecutor periodicTaskExecutor = new PeriodicTaskExecutor(executorPools, clusterLease);
         vertx.eventBus().localConsumer(ON_CASSANDRA_CQL_READY.address(),
                                        ignored -> periodicTaskExecutor.schedule(clusterLeaseClaimTask));
+        vertx.eventBus().localConsumer(ON_ALL_CASSANDRA_CQL_READY.address(),
+                                       message -> periodicTaskExecutor.schedule(schemaReportingTask));
         return periodicTaskExecutor;
+    }
+
+    @Provides
+    @Singleton
+    public IdentifiersProvider identifiersProvider(@NotNull InstanceMetadataFetcher fetcher)
+    {
+        LazyInitializer<String> cluster = new LazyInitializer<String>()
+        {
+            @Override
+            @NotNull
+            protected String initialize()
+            {
+                return fetcher.anyInstance().delegate().storageOperations().clusterName();
+            }
+        };
+
+        return new IdentifiersProvider()
+        {
+            @Override
+            @NotNull
+            public String cluster()
+            {
+                return ThrowableUtils.supplier(cluster::get).get();
+            }
+        };
+    }
+
+    @Provides
+    @Singleton
+    public EmitterFactory emitterFactory(@NotNull SidecarConfiguration sidecarConfiguration)
+    {
+        SchemaReportingConfiguration reporterConfiguration = sidecarConfiguration.schemaReportingConfiguration();
+        RestEmitterConfig emitterConfiguration = RestEmitterConfig.builder()
+                                                                  .server(reporterConfiguration.endpoint())
+                                                                  .maxRetries(reporterConfiguration.retries())
+                                                                  .build();
+
+        return () -> new RestEmitter(emitterConfiguration);
     }
 
     /**

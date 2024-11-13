@@ -1,0 +1,132 @@
+[
+{
+	"aspectName" : "dataPlatformInfo",
+	"entityUrn" : "urn:li:dataPlatform:cassandra",
+	"entityType" : "dataPlatform",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"cassandra\",\"datasetNameDelimiter\":\".\",\"type\":\"RELATIONAL_DB\",\"displayName\":\"Cassandra\"}"
+	}
+},
+{
+	"aspectName" : "dataPlatformInstanceProperties",
+	"entityUrn" : "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b)",
+	"entityType" : "dataPlatformInstance",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"ace3ba6b-49b2-3dd5-955a-1de13730188b\",\"customProperties\":{\"cluster\":\"cluster\",\"environment\":\"ENVIRONMENT\",\"application\":\"application\"}}"
+	}
+},
+{
+	"aspectName" : "containerProperties",
+	"entityUrn" : "urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"sample_keyspace\"}"
+	}
+},
+{
+	"aspectName" : "subTypes",
+	"entityUrn" : "urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"typeNames\":[\"keyspace\"]}"
+	}
+},
+{
+	"aspectName" : "dataPlatformInstance",
+	"entityUrn" : "urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"platform\":\"urn:li:dataPlatform:cassandra\",\"instance\":\"urn:li:dataPlatformInstance:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b)\"}"
+	}
+},
+{
+	"aspectName" : "browsePathsV2",
+	"entityUrn" : "urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"path\":[{\"id\":\"ENVIRONMENT\"},{\"id\":\"application\"},{\"id\":\"cluster\"}]}"
+	}
+},
+{
+	"aspectName" : "datasetProperties",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"qualifiedName\":\"sample_keyspace.sample_table\",\"name\":\"sample_table\",\"description\":\"table comment\"}"
+	}
+},
+{
+	"aspectName" : "schemaMetadata",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"platformSchema\":{\"com.linkedin.schema.OtherSchema\":{\"rawSchema\":\"CREATE TABLE sample_keyspace.sample_table (...);\"}},\"schemaName\":\"sample_table\",\"fields\":[],\"version\":1,\"platform\":\"urn:li:dataPlatform:urn:li:dataPlatform:cassandra\",\"hash\":\"d1ec8b1da5cc2efddfb3d5b484d091ae32fdd6c4\"}"
+	}
+},
+{
+	"aspectName" : "container",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"container\":\"urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace\"}"
+	}
+},
+{
+	"aspectName" : "subTypes",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"typeNames\":[\"table\"]}"
+	}
+},
+{
+	"aspectName" : "dataPlatformInstance",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"platform\":\"urn:li:dataPlatform:cassandra\",\"instance\":\"urn:li:dataPlatformInstance:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b)\"}"
+	}
+},
+{
+	"aspectName" : "browsePathsV2",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"path\":[{\"id\":\"ENVIRONMENT\"},{\"id\":\"application\"},{\"id\":\"cluster\"},{\"urn\":\"urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace\",\"id\":\"urn:li:container:ace3ba6b-49b2-3dd5-955a-1de13730188b_sample_keyspace\"}]}"
+	}
+},
+{
+	"aspectName" : "browsePaths",
+	"entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:cassandra,ace3ba6b-49b2-3dd5-955a-1de13730188b.sample_keyspace.sample_table,PROD)",
+	"entityType" : "dataset",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"paths\":[\"/prod/cassandra/ENVIRONMENT/application/cluster/sample_keyspace/\"]}"
+	}
+}
+]

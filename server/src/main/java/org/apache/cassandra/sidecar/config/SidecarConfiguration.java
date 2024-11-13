@@ -20,6 +20,7 @@ package org.apache.cassandra.sidecar.config;
 
 import java.util.List;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,4 +89,9 @@ public interface SidecarConfiguration
      */
     @Nullable VertxConfiguration vertxConfiguration();
 
+    /**
+     * @return the configuration for Schema Reporting
+     */
+    @NotNull
+    SchemaReportingConfiguration schemaReportingConfiguration();
 }

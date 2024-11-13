@@ -22,22 +22,114 @@ import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 
 import org.apache.cassandra.sidecar.common.server.ThrowingRunnable;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Collection of utility methods for understanding {@link Throwable} thrown better
+ * Collection of utility methods for understanding {@link Throwable} thrown better;
+ * also enables more fluent handling of checked exceptions in lambda expressions
  */
-public class ThrowableUtils
+public final class ThrowableUtils
 {
+    /**
+     * Version of {@link Supplier} that can throw any checked exception
+     */
+    @FunctionalInterface
+    public interface Supplier<T>
+    {
+        T get() throws Exception;
+    }
+
+    /**
+     * Version of {@link Consumer} that can throw any checked exception
+     */
+    @FunctionalInterface
+    public interface Consumer<T>
+    {
+        void accept(final T object) throws Exception;
+    }
+
+    /**
+     * Version of {@link Function} that can throw any checked exception
+     */
+    @FunctionalInterface
+    public interface Function<T, R>
+    {
+        R apply(final T object) throws Exception;
+    }
+
+    /**
+     * Private constructor that prevents unnecessary instantiation
+     *
+     * @throws UnsupportedOperationException when called
+     */
     private ThrowableUtils()
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass() + " is static utility class and shall not be instantiated");
+    }
+
+    /**
+     * Helper method that wraps any checked exception thrown in {@link Supplier} with a new unchecked exception
+     */
+    @NotNull
+    public static <T> java.util.function.Supplier<T> supplier(@NotNull final Supplier<T> supplier)
+    {
+        return () ->
+        {
+            try
+            {
+                return supplier.get();
+            }
+            catch (final Exception exception)
+            {
+                throw new RuntimeException(exception);
+            }
+        };
+    }
+
+    /**
+     * Helper method that wraps any checked exception thrown in {@link Consumer} with a new unchecked exception
+     */
+    @NotNull
+    public static <T> java.util.function.Consumer<T> consumer(@NotNull final Consumer<T> consumer)
+    {
+        return object ->
+        {
+            try
+            {
+                consumer.accept(object);
+            }
+            catch (final Exception exception)
+            {
+                throw new RuntimeException(exception);
+            }
+        };
+    }
+
+    /**
+     * Helper method that wraps any checked exception thrown in {@link Function} with a new unchecked exception
+     */
+    @NotNull
+    public static <T, R> java.util.function.Function<T, R> function(@NotNull final Function<T, R> function)
+    {
+        return object ->
+        {
+            try
+            {
+                return function.apply(object);
+            }
+            catch (final Exception exception)
+            {
+                throw new RuntimeException(exception);
+            }
+        };
     }
 
     /**
      * Run the {@code actionMayThrow} and wrap any {@link Exception} thrown in {@link RuntimeException}
+     *
+     * @param <R> return value type of the action
      * @param actionMayThrow action that may throw exceptions
      * @return value of type R
-     * @param <R> return value type of the action
      */
     public static <R> R propagate(Callable<R> actionMayThrow)
     {
@@ -66,10 +158,11 @@ public class ThrowableUtils
      * Get the first throwable in the exception chain that matches with the expected throwable class.
      * When there is circular exception reference, it tries to visit all exceptions in the chain at least once
      * to make sure whether the exception to find exists or not. If still not found, null is returned.
+     *
+     * @param <T> type of the exception to look up
      * @param throwable the top most exception to check
      * @param expectedCauseKlass expected cause class
      * @return the cause that matches with the cause class or null
-     * @param <T> type of the exception to look up
      */
     public static <T extends Throwable> T getCause(Throwable throwable, Class<T> expectedCauseKlass)
     {
@@ -80,6 +173,7 @@ public class ThrowableUtils
      * Get the first throwable in the exception chain that satisfies the predicate.
      * When there is circular exception reference, it tries to visit all exceptions in the chain at least once
      * to make sure whether the exception to find exists or not. If still not found, null is returned.
+     *
      * @param throwable the top most exception to check
      * @param predicate predicate
      * @return the cause that satisfies the predicate or null

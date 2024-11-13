@@ -47,16 +47,19 @@ import org.apache.cassandra.sidecar.config.MetricsConfiguration;
 import org.apache.cassandra.sidecar.config.PeriodicTaskConfiguration;
 import org.apache.cassandra.sidecar.config.RestoreJobConfiguration;
 import org.apache.cassandra.sidecar.config.S3ClientConfiguration;
+import org.apache.cassandra.sidecar.config.SchemaReportingConfiguration;
 import org.apache.cassandra.sidecar.config.ServiceConfiguration;
 import org.apache.cassandra.sidecar.config.SidecarConfiguration;
 import org.apache.cassandra.sidecar.config.SslConfiguration;
 import org.apache.cassandra.sidecar.config.VertxConfiguration;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Configuration for this Sidecar process
  */
+@SuppressWarnings("unused")
 public class SidecarConfigurationImpl implements SidecarConfiguration
 {
     @Deprecated
@@ -97,6 +100,10 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
     @Nullable
     protected final VertxConfiguration vertxConfiguration;
 
+    @JsonProperty("schema_reporting")
+    @NotNull
+    protected final SchemaReportingConfiguration schemaReportingConfiguration;
+
     public SidecarConfigurationImpl()
     {
         this(builder());
@@ -116,6 +123,7 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
         restoreJobConfiguration = builder.restoreJobConfiguration;
         s3ClientConfiguration = builder.s3ClientConfiguration;
         vertxConfiguration = builder.vertxConfiguration;
+        schemaReportingConfiguration = builder.schemaReportingConfiguration;
     }
 
     /**
@@ -246,6 +254,16 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
         return vertxConfiguration;
     }
 
+    /**
+     * @return the configuration for Schema Reporting
+     */
+    @Override
+    @JsonProperty("schema_reporting")
+    @NotNull
+    public SchemaReportingConfiguration schemaReportingConfiguration() {
+        return schemaReportingConfiguration;
+    }
+
     public static SidecarConfigurationImpl readYamlConfiguration(String yamlConfigurationPath) throws IOException
     {
         try
@@ -357,12 +375,12 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
                                             MillisecondBoundConfiguration.ZERO,
                                             MillisecondBoundConfiguration.parse("30s"));
         private MetricsConfiguration metricsConfiguration = new MetricsConfigurationImpl();
-        private CassandraInputValidationConfiguration cassandraInputValidationConfiguration
-        = new CassandraInputValidationConfigurationImpl();
+        private CassandraInputValidationConfiguration cassandraInputValidationConfiguration = new CassandraInputValidationConfigurationImpl();
         private DriverConfiguration driverConfiguration = new DriverConfigurationImpl();
         private RestoreJobConfiguration restoreJobConfiguration = new RestoreJobConfigurationImpl();
         private S3ClientConfiguration s3ClientConfiguration = new S3ClientConfigurationImpl();
         private VertxConfiguration vertxConfiguration = new VertxConfigurationImpl();
+        private SchemaReportingConfiguration schemaReportingConfiguration = new SchemaReportingConfigurationImpl();
 
         protected Builder()
         {
@@ -509,6 +527,17 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
         public Builder vertxConfiguration(VertxConfiguration configuration)
         {
             return update(b -> b.vertxConfiguration = configuration);
+        }
+
+        /**
+         * Sets the {@code schemaReportingConfiguration} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param configuration the {@code schemaReportingConfiguration} to set
+         * @return a reference to this Builder
+         */
+        public Builder schemaReportingConfiguration(SchemaReportingConfiguration configuration)
+        {
+            return update(builder -> builder.schemaReportingConfiguration = configuration);
         }
 
         /**

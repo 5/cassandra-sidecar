@@ -1,0 +1,213 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.cassandra.sidecar.datahub;
+
+import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.TableMetadata;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
+
+/**
+ * An abstract class that has to be extended and instantiated for every Cassandra
+ * cluster that needs its schema converted into a DataHub-compliant format.
+ */
+public abstract class IdentifiersProvider
+{
+    protected static final String URN = "urn";
+    protected static final String LI = "li";
+    protected static final String DATA_PLATFORM = "dataPlatform";
+    protected static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
+    protected static final String CONTAINER = "container";
+    protected static final String DATASET = "dataset";
+    protected static final String PROD = "PROD";  // DataHub requires this to be {@code PROD} regardless
+
+    /**
+     * A public getter method that returns the name of a Cassandra Organization
+     */
+    @NotNull
+    public String organization()
+    {
+        return "Cassandra";
+    }
+
+    /**
+     * A public getter method that returns the name of a Cassandra Platform
+     */
+    @NotNull
+    public String platform()
+    {
+        return "cassandra";
+    }
+
+    /**
+     * A public getter method that returns the name of a Cassandra Environment
+     */
+    @NotNull
+    public String environment()
+    {
+        return "ENVIRONMENT";
+    }
+
+    /**
+     * A public getter method that returns the name of a Cassandra Application
+     */
+    @NotNull
+    public String application()
+    {
+        return "application";
+    }
+
+    /**
+     * A public getter method that returns the name of a Cassandra Cluster
+     */
+    @NotNull
+    public abstract String cluster();
+
+    /**
+     * A public getter method that returns the identifier of a Cassandra Cluster
+     */
+    @NotNull
+    public UUID identifier()
+    {
+        return UUID.nameUUIDFromBytes((environment() + MetadataToAspectConverter.DELIMITER
+                                     + application() + MetadataToAspectConverter.DELIMITER
+                                     + cluster()).getBytes());
+    };
+
+    /**
+     * A public helper method that prepares the URN of a Data Platform
+     */
+    @NotNull
+    public String urnDataPlatform()
+    {
+        return String.format("%s:%s:%s:%s",
+                URN,
+                LI,
+                DATA_PLATFORM,
+                platform());
+    }
+
+    /**
+     * A public helper method that prepares the URN of a Data Platform Instance
+     */
+    @NotNull
+    public String urnDataPlatformInstance()
+    {
+        return String.format("%s:%s:%s:(%s,%s)",
+                URN,
+                LI,
+                DATA_PLATFORM_INSTANCE,
+                urnDataPlatform(),
+                identifier());
+    }
+
+    /**
+     * A public helper method that prepares the URN of a Container
+     */
+    @NotNull
+    public String urnContainer(@NotNull KeyspaceMetadata keyspace)
+    {
+        return String.format("%s:%s:%s:%s_%s",
+                URN,
+                LI,
+                CONTAINER,
+                identifier(),
+                keyspace.getName());
+    }
+
+    /**
+     * A public helper method that prepares the URN of a Dataset
+     */
+    @NotNull
+    public String urnDataset(@NotNull TableMetadata table)
+    {
+        return String.format("%s:%s:%s:(%s,%s.%s.%s,%s)",
+                URN,
+                LI,
+                DATASET,
+                urnDataPlatform(),
+                identifier(),
+                table.getKeyspace().getName(),
+                table.getName(),
+                PROD);
+    }
+
+    /**
+     * A public method that returns an {@link int} hash code of this object
+     */
+    @Override
+    public int hashCode()
+    {
+        return new HashCodeBuilder()
+                .append(this.organization())
+                .append(this.platform())
+                .append(this.environment())
+                .append(this.application())
+                .append(this.cluster())
+                .append(this.identifier())
+                .toHashCode();
+    }
+
+    /**
+     * A public method that compares this {@link IdentifiersProvider} object to another one
+     */
+    @Override
+    public boolean equals(@Nullable Object other)
+    {
+        if (other instanceof IdentifiersProvider)
+        {
+            IdentifiersProvider that = (IdentifiersProvider) other;
+            return new EqualsBuilder()
+                    .append(this.organization(), that.organization())
+                    .append(this.platform(),     that.platform())
+                    .append(this.environment(),  that.environment())
+                    .append(this.application(),  that.application())
+                    .append(this.cluster(),      that.cluster())
+                    .append(this.identifier(),   that.identifier())
+                    .isEquals();
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
+     * A public method that returns a {@link String} representation of this object
+     */
+    @Override
+    @NotNull
+    public String toString()
+    {
+        return new ToStringBuilder(this)
+                .append(this.organization())
+                .append(this.platform())
+                .append(this.environment())
+                .append(this.application())
+                .append(this.cluster())
+                .append(this.identifier())
+                .toString();
+    }
+}

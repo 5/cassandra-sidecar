@@ -20,6 +20,9 @@ package org.apache.cassandra.sidecar.common.server.utils;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +33,53 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ThrowableUtilsTest
 {
+    /**
+     * A new type of checked exception to throw for testing
+     */
+    private static class CheckedException extends Exception
+    {
+    }
+
+    @Test
+    @SuppressWarnings("Convert2MethodRef")
+    void testThrowingSupplier()
+    {
+        Supplier<Void> supplier = ThrowableUtils.supplier(() ->
+        {
+            throw new CheckedException();
+        });
+
+        assertThatThrownBy(() -> supplier.get())
+            .isInstanceOf(Exception.class)
+            .hasCauseInstanceOf(CheckedException.class);
+    }
+
+    @Test
+    void testThrowingConsumer()
+    {
+        Consumer<Void> consumer = ThrowableUtils.consumer(object ->
+        {
+            throw new CheckedException();
+        });
+
+        assertThatThrownBy(() -> consumer.accept(null))
+            .isInstanceOf(Exception.class)
+            .hasCauseInstanceOf(CheckedException.class);
+    }
+
+    @Test
+    void testThrowingFunction()
+    {
+        Function<Void, Void> supplier = ThrowableUtils.function(object ->
+        {
+            throw new CheckedException();
+        });
+
+        assertThatThrownBy(() -> supplier.apply(null))
+            .isInstanceOf(Exception.class)
+            .hasCauseInstanceOf(CheckedException.class);
+    }
+
     @Test
     void testGetCause()
     {

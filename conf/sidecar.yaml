@@ -140,6 +140,14 @@ vertx:
     classpath_resolving_enabled: false
     file_caching_enabled: false
 
+schema_reporting:                            # Schema Reporting configuration
+  enabled:          false                    # Disabled by default
+  initial_delay:    6h                       # Maximum delay before the first schema report (actual delay is randomized)
+  execute_interval: 12h                      # Exact interval between two sequential schema reports
+  endpoint:         http://localhost/schema  # Endpoint address for schema reporting
+  method:           PUT                      # HTTP verb to use for schema reporting
+  retries:          3                        # Number of times a failing schema report is retried
+
 #
 # Enable SSL configuration (Disabled by default)
 #

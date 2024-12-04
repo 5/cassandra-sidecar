@@ -19,9 +19,11 @@
 
 package org.apache.cassandra.sidecar.utils;
 
+import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TableOptionsMetadata;
 import com.datastax.driver.core.UserType;
@@ -45,11 +47,16 @@ class SchemaUtilsTest
     @Test
     void testEmptyKeyspace() throws IOException
     {
+        final Cluster cluster = mock(Cluster.class);
+        final Metadata metadata = mock (Metadata.class);
         final KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
+        when(cluster.getClusterName()).thenReturn("sample_cluster");
+        when(cluster.getMetadata()).thenReturn(metadata);
+        when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(Collections.emptyList());
 
-        final String actual = SchemaUtils.extractSchema(keyspace);
+        final String actual = SchemaUtils.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/empty_keyspace.json");
 
         assertEquals(expected, actual);
@@ -58,9 +65,14 @@ class SchemaUtilsTest
     @Test
     void testEmptyTable() throws IOException
     {
+        final Cluster cluster = mock(Cluster.class);
+        final Metadata metadata = mock (Metadata.class);
         final KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         final TableMetadata table = mock(TableMetadata.class);
         final TableOptionsMetadata options = mock(TableOptionsMetadata.class);
+        when(cluster.getClusterName()).thenReturn("sample_cluster");
+        when(cluster.getMetadata()).thenReturn(metadata);
+        when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(Collections.singletonList(table));
         when(table.getKeyspace()).thenReturn(keyspace);
@@ -68,7 +80,7 @@ class SchemaUtilsTest
         when(table.getOptions()).thenReturn(options);
         when(options.getComment()).thenReturn("table comment");
 
-        final String actual = SchemaUtils.extractSchema(keyspace);
+        final String actual = SchemaUtils.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/empty_table.json");
 
         assertEquals(expected, actual);
@@ -77,6 +89,8 @@ class SchemaUtilsTest
     @Test
     void testPrimitiveTypes() throws IOException
     {
+        final Cluster cluster = mock(Cluster.class);
+        final Metadata metadata = mock (Metadata.class);
         final KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         final TableMetadata table = mock(TableMetadata.class);
         final TableOptionsMetadata options = mock(TableOptionsMetadata.class);
@@ -92,6 +106,9 @@ class SchemaUtilsTest
         final ColumnMetadata c6 = mock(ColumnMetadata.class);
         final ColumnMetadata c7 = mock(ColumnMetadata.class);
         final ColumnMetadata c8 = mock(ColumnMetadata.class);
+        when(cluster.getClusterName()).thenReturn("sample_cluster");
+        when(cluster.getMetadata()).thenReturn(metadata);
+        when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(ImmutableList.of(table));
         when(table.getKeyspace()).thenReturn(keyspace);
@@ -138,7 +155,7 @@ class SchemaUtilsTest
         when(c8.getName()).thenReturn("c8");
         when(c8.getType()).thenReturn(DataType.map(DataType.timestamp(), DataType.inet(), false));
 
-        final String actual = SchemaUtils.extractSchema(keyspace);
+        final String actual = SchemaUtils.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/primitive_types.json");
 
         assertEquals(expected, actual);
@@ -147,6 +164,8 @@ class SchemaUtilsTest
     @Test
     void testUserTypes() throws IOException
     {
+        final Cluster cluster = mock(Cluster.class);
+        final Metadata metadata = mock (Metadata.class);
         final KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         final TableMetadata table = mock(TableMetadata.class);
         final TableOptionsMetadata options = mock(TableOptionsMetadata.class);
@@ -161,6 +180,9 @@ class SchemaUtilsTest
         final UserType.Field udt1c1 = mock(UserType.Field.class);
         final UserType.Field udt1udt2 = mock(UserType.Field.class);
         final UserType.Field udt2c2 = mock(UserType.Field.class);
+        when(cluster.getClusterName()).thenReturn("sample_cluster");
+        when(cluster.getMetadata()).thenReturn(metadata);
+        when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(ImmutableList.of(table));
         when(table.getKeyspace()).thenReturn(keyspace);
@@ -202,7 +224,7 @@ class SchemaUtilsTest
         when(udt2c2.getName()).thenReturn("c2");
         when(udt2c2.getType()).thenReturn(DataType.cboolean());
 
-        final String actual = SchemaUtils.extractSchema(keyspace);
+        final String actual = SchemaUtils.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/user_types.json");
 
         assertEquals(expected, actual);

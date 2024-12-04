@@ -20,9 +20,11 @@
 package org.apache.cassandra.sidecar.utils;
 
 import com.datastax.driver.core.AbstractTableMetadata;
+import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.UserType;
 import com.linkedin.common.BrowsePathEntry;
@@ -81,7 +83,6 @@ public final class SchemaUtils
     // TODO(ysemchyshyn): This is the initial implementation of DataHub support, and there are a few things missing at the moment
     //  * Figure out where to obtain the environment name {@link ENVIRONMENT}
     //  * Figure out where to obtain the application name {@link APPLICATION}
-    //  * Figure out where to obtain the cluster name {@link CLUSTER}
     //  * Figure out how to generate a unique identifier for the cluster {@link IDENTIFIER}
     //  * Figure out where to obtain the actual Cassandra schema {@link SCHEMA}
     private static final String APPLICATION = "app_name";
@@ -168,16 +169,19 @@ public final class SchemaUtils
     /**
      * Public helper method for extracting and formatting the Cassandra schema
      *
-     * @param keyspace {@link KeyspaceMetadata} to extract Cassandra schema from
+     * @param cluster a {@link Cluster} to extract Cassandra schema from
      *
      * @return DataHub schema as a JSON-formatted {@link String}
      */
     @NotNull
-    public static String extractSchema(@NotNull final KeyspaceMetadata keyspace)
+    public static String extractSchema(@NotNull final Cluster cluster)
     {
+        // TODO(ysemchyshyn): Use this value instead of CLUSTER, see whether this class needs to be made an injectable singleton?
+        final String name = cluster.getClusterName();
+
         try (final TemporaryFile file = new TemporaryFile(LOGGER))
         {
-            final Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> schema = prepareSchema(keyspace);
+            final Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> schema = prepareSchema(cluster.getMetadata());
 
             writeSchema(schema, file.path);
 
@@ -185,8 +189,35 @@ public final class SchemaUtils
         }
         catch (final Exception exception)
         {
-            throw new RuntimeException("Cannot extract schema for keyspace " + keyspace.getName(), exception);
+            throw new RuntimeException("Cannot extract schema for cluster " + name, exception);
         }
+    }
+
+    /**
+     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     */
+    @NotNull
+    private static Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
+    {
+        return metadata.getKeyspaces().stream()
+                .filter(SchemaUtils::neitherVirtualNorSystem)
+                .flatMap(SchemaUtils::prepareSchema);
+    }
+
+    /**
+     * Private helper method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
+     */
+    private static boolean neitherVirtualNorSystem(@NotNull final KeyspaceMetadata keyspace)
+    {
+        if (keyspace.isVirtual())
+        {
+            return false;
+        }
+
+        final String name = keyspace.getName();
+        return !name.equals("system")
+            && !name.startsWith("system_")
+            && !name.startsWith("sidecar_");
     }
 
     /**
@@ -230,13 +261,25 @@ public final class SchemaUtils
     @NotNull
     private static DatasetProperties prepareDatasetProperties(@NotNull final TableMetadata table)
     {
-        return new DatasetProperties()
+        DatasetProperties properties = new DatasetProperties()
                 .setName(table.getName())
-                .setQualifiedName(table.getKeyspace().getName() + "." + table.getName())
-                .setDescription(table.getOptions().getComment());
+                .setQualifiedName(table.getKeyspace().getName() + "." + table.getName());
+
+        final String comment = table.getOptions().getComment();
+        if (comment != null)
+        {
+            properties = properties.setDescription(comment);
+        }
+
         // TODO(ysemchyshyn): It is desirable to also obtain access timestamps, but the necessary permissions may be lacking
-        //      .setCreated(convertTime(TIMESTAMP))
-        //      .setLastModified(convertTime(TIMESTAMP));
+        //                    if (...)
+        //                    {
+        //                        properties = properties
+        //                                .setCreated(convertTime(...))
+        //                                .setLastModified(convertTime(...));
+        //                    }
+
+        return properties;
     }
 
     /**
@@ -357,8 +400,8 @@ public final class SchemaUtils
     /**
      * Private helper method for converting a Java timestamp into the DataHub timestamp
      */
-    @SuppressWarnings("unused")
     @NotNull
+    @SuppressWarnings("unused")
     private static TimeStamp convertTime(@NotNull final Instant javaTime)
     {
         return new TimeStamp()
@@ -421,7 +464,8 @@ public final class SchemaUtils
             LOGGER.warn("Encountered an unknown data type " + cassandraType);
         }
 
-        return new SchemaFieldDataType().setType(datahubType);
+        return new SchemaFieldDataType()
+                .setType(datahubType);
     }
 
     /**

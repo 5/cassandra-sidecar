@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.cassandra.sidecar.utils;
+package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.AbstractTableMetadata;
 import com.datastax.driver.core.Cluster;
@@ -27,6 +27,7 @@ import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.UserType;
+import com.google.inject.Inject;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
@@ -56,53 +57,36 @@ import com.linkedin.schema.TimeType;
 import datahub.client.file.FileEmitter;
 import datahub.client.file.FileEmitterConfig;
 import datahub.event.MetadataChangeProposalWrapper;
+import org.apache.cassandra.sidecar.utils.Throwing;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
  * Utility class for converting a Cassandra schema into a DataHub-compliant JSON-formatted String.
- *
+ * <p>
  * Note that the extensive usage of {@link Stream<>} types here enables late creation and early destruction
  * of DataHub aspect objects (since all of them can potentially take up to a gigabyte).
  */
-public final class SchemaUtils
+@SuppressWarnings("unused")
+public class SchemaConverter
 {
-    // TODO(ysemchyshyn): This is the initial implementation of DataHub support, and there are a few things missing at the moment
-    //  * Figure out where to obtain the environment name {@link ENVIRONMENT}
-    //  * Figure out where to obtain the application name {@link APPLICATION}
-    //  * Figure out how to generate a unique identifier for the cluster {@link IDENTIFIER}
-    //  * Figure out where to obtain the actual Cassandra schema {@link SCHEMA}
-    private static final String APPLICATION = "app_name";
-    private static final String CLUSTER     = "cluster_name";
-    private static final String ENVIRONMENT = "PROD";
-    private static final UUID   IDENTIFIER  = UUID.fromString("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
-    private static final String SCHEMA      = "CREATE TABLE sample_keyspace.sample_table (seid text PRIMARY KEY, brokerstatus boolean, creationdate timestamp, "
-                                            + "creditservicesstatus boolean, dsid text, lastmodifieddate timestamp, partnerservicestatus boolean, paymentservic"
-                                            + "esstatus boolean, peerpaymentstatus boolean, signature text, tsmstatus boolean) WITH additional_write_policy = '"
-                                            + "99p' AND allow_auto_snapshot = true AND bloom_filter_fp_chance = 0.1n AND caching = {'keys': 'ALL', 'rows_per_pa"
-                                            + "rtition': 'NONE'} AND cdc = false AND comment = '' AND compaction = {'class': 'org.apache.cassandra.db.compactio"
-                                            + "n.LeveledCompactionStrategy', 'enabled': 'true', 'max_threshold': '32', 'min_threshold': '4'} AND compression = "
-                                            + "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'} AND memtable = 'default'"
-                                            + " AND crc_check_chance = 1.0 AND default_time_to_live = 0 AND disable_christmas_patch = false AND disable_repairs"
-                                            + " = false AND extensions = {} AND gc_grace_seconds = 864000 AND incremental_backups = true AND max_index_interval"
-                                            + " = 2048 AND memtable_flush_period_in_ms = 0 AND min_index_interval = 128 AND read_repair = 'BLOCKING' AND specul"
-                                            + "ative_retry = '99p';";
-
     // An instance of logger to use
-    private static final Logger LOGGER = LoggerFactory.getLogger(SchemaUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SchemaConverter.class);
+
+    // Regular expression used to extract or validate {@code CREATE TABLE} statements
+    private static final Pattern TABLE_SCHEMA = Pattern.compile("\\bCREATE\\s+TABLE\\s+(\\S+).*?;", Pattern.CASE_INSENSITIVE
+                                                                                                  | Pattern.DOTALL);
 
     // Constant URNs used in the creation of DataHub aspects
     private static final String CONTAINER_URN = "urn:li:container";
@@ -154,16 +138,16 @@ public final class SchemaUtils
         TYPES.put(DataType.Name.UUID,      STRING_TYPE);
         TYPES.put(DataType.Name.VARCHAR,   STRING_TYPE);
         TYPES.put(DataType.Name.VARINT,    NUMBER_TYPE);
-    };
+    }
 
-    /**
-     * Private constructor that prevents unnecessary instantiation
-     *
-     * @throws IllegalStateException when called
-     */
-    private SchemaUtils()
-    {
-        throw new IllegalStateException(getClass() + " is a static utility class and shall not be instantiated");
+    @NotNull
+    protected final IdentifiersProvider identifiers;
+
+    protected String clusterName;
+
+    @Inject
+    public SchemaConverter(@NotNull final IdentifiersProvider identifiers)  {
+        this.identifiers = identifiers;
     }
 
     /**
@@ -174,10 +158,9 @@ public final class SchemaUtils
      * @return DataHub schema as a JSON-formatted {@link String}
      */
     @NotNull
-    public static String extractSchema(@NotNull final Cluster cluster)
+    public String extractSchema(@NotNull final Cluster cluster)
     {
-        // TODO(ysemchyshyn): Use this value instead of CLUSTER, see whether this class needs to be made an injectable singleton?
-        final String name = cluster.getClusterName();
+        this.clusterName = cluster.getClusterName();
 
         try (final TemporaryFile file = new TemporaryFile(LOGGER))
         {
@@ -189,7 +172,7 @@ public final class SchemaUtils
         }
         catch (final Exception exception)
         {
-            throw new RuntimeException("Cannot extract schema for cluster " + name, exception);
+            throw new RuntimeException("Cannot extract schema for cluster " + clusterName, exception);
         }
     }
 
@@ -197,11 +180,201 @@ public final class SchemaUtils
      * Private helper method for formatting Cassandra schema using Acryl DataHub client
      */
     @NotNull
-    private static Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
+    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
     {
         return metadata.getKeyspaces().stream()
-                .filter(SchemaUtils::neitherVirtualNorSystem)
-                .flatMap(SchemaUtils::prepareSchema);
+                .filter(SchemaConverter::neitherVirtualNorSystem)
+                .flatMap(this::prepareSchema);
+    }
+
+    /**
+     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     */
+    @NotNull
+    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final KeyspaceMetadata keyspace)
+    {
+        return keyspace.getTables().stream()
+                .flatMap(this::prepareSchema);
+    }
+
+    /**
+     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     */
+    @NotNull
+    @SuppressWarnings("unchecked")
+    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final TableMetadata table)
+    {
+        final Stream<Function<TableMetadata, ? extends RecordTemplate>> aspects = Stream.of(
+                Throwing.function(this::prepareDatasetProperties),
+                Throwing.function(this::prepareSchemaMetadata),
+                Throwing.function(this::prepareContainer),
+                Throwing.function(this::prepareSubTypes),
+                Throwing.function(this::prepareDataPlatformInstance),
+                Throwing.function(this::prepareBrowsePathsV2));
+
+        final String dataset = getDataset(table);
+
+        return aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
+                .entityType(DATASET_VALUE)
+                .entityUrn(dataset)
+                .upsert()
+                .aspect(aspect.apply(table))
+                .build());
+    }
+
+    /**
+     * Private helper method for preparing the Dataset Properties aspect
+     */
+    @NotNull
+    private DatasetProperties prepareDatasetProperties(@NotNull final TableMetadata table)
+    {
+        DatasetProperties properties = new DatasetProperties()
+                .setName(table.getName())
+                .setQualifiedName(table.getKeyspace().getName() + "." + table.getName());
+
+        final String comment = table.getOptions().getComment();
+        if (comment != null)
+        {
+            properties = properties
+                .setDescription(comment);
+        }
+
+        // TODO: It is desirable to also obtain timestamps, but the necessary permissions may be lacking
+        //       if (...)
+        //       {
+        //           properties = properties
+        //               .setCreated(convertTime(...))
+        //               .setLastModified(convertTime(...));
+        //       }
+
+        return properties;
+    }
+
+    /**
+     * Private helper method for preparing the Schema Metadata aspect
+     */
+    @NotNull
+    private SchemaMetadata prepareSchemaMetadata(@NotNull final TableMetadata table)
+    {
+        final SchemaFieldArray fields = new SchemaFieldArray();
+        table.getColumns().stream()
+                .flatMap(SchemaConverter::convertColumn)
+                .forEach(fields::add);
+
+        // Use {@code CREATE TABLE} CQL statement without associated UDTs or indexes as native schema
+        final String cql = table.asCQLQuery();
+        final SchemaMetadata.PlatformSchema schema = new SchemaMetadata.PlatformSchema();
+        schema.setOtherSchema(new OtherSchema().setRawSchema(cql));
+        final String hash = DigestUtils.sha1Hex(cql);
+
+        return new SchemaMetadata()
+                .setSchemaName(table.getName())
+                .setPlatform(new DataPlatformUrn(PLATFORM_URN))
+                .setVersion(VERSION_VALUE)
+                .setFields(fields)
+                .setPlatformSchema(schema)
+                .setHash(hash);
+    }
+
+    /**
+     * Private helper method for preparing the Container aspect
+     */
+    @NotNull
+    private Container prepareContainer(@NotNull final TableMetadata table) throws URISyntaxException {
+        final String container = getContainer(table);
+
+        return new Container()
+                .setContainer(new Urn(container));
+    }
+
+    /**
+     * Private helper method for preparing the Sub Type aspect
+     */
+    @NotNull
+    private SubTypes prepareSubTypes(@NotNull final TableMetadata table)
+    {
+        return new SubTypes()
+                .setTypeNames(new StringArray(TABLE_VALUE));
+    }
+
+    /**
+     * Private helper method for preparing the Data Platform Instance aspect
+     */
+    @NotNull
+    private DataPlatformInstance prepareDataPlatformInstance(@NotNull final TableMetadata table) throws URISyntaxException
+    {
+        final String instance = getInstance(table);
+
+        return new DataPlatformInstance()
+                .setPlatform(new Urn(PLATFORM_URN))
+                .setInstance(new Urn(instance));
+    }
+
+    /**
+     * Private helper method for preparing the Browse Paths v.2 aspect
+     */
+    @NotNull
+    private BrowsePathsV2 prepareBrowsePathsV2(@NotNull final TableMetadata table) throws URISyntaxException
+    {
+        final String container = getContainer(table);
+        final BrowsePathEntryArray path = new BrowsePathEntryArray(
+                new BrowsePathEntry().setId(identifiers.environment()),
+                new BrowsePathEntry().setId(identifiers.application()),
+                new BrowsePathEntry().setId(clusterName),
+                new BrowsePathEntry()
+                        .setId(container)
+                        .setUrn(new Urn(container)));
+
+        return new BrowsePathsV2()
+                .setPath(path);
+    }
+
+    /**
+     * Private helper method for retrieving the Instance value
+     */
+    @NotNull
+    private String getInstance(@NotNull final TableMetadata table)
+    {
+        return String.format("%s:%s",
+                INSTANCE_URN,
+                identifiers.cluster());
+    }
+
+    /**
+     * Private helper method for retrieving the Container value
+     */
+    @NotNull
+    private String getContainer(@NotNull final TableMetadata table)
+    {
+        return String.format("%s:%s_%s",
+                CONTAINER_URN,
+                identifiers.cluster(),
+                table.getKeyspace().getName());
+    }
+
+    /**
+     * Private helper method for retrieving the URN value
+     */
+    @NotNull
+    private String getDataset(@NotNull final TableMetadata table)
+    {
+        return String.format("%s:(%s,%s.%s.%s,%s)",
+                DATASET_URN,
+                PLATFORM_URN,
+                identifiers.cluster(),
+                table.getKeyspace().getName(),
+                table.getName(),
+                identifiers.environment());
+    }
+
+    /**
+     * Private helper method for converting a Java timestamp into the DataHub timestamp
+     */
+    @NotNull
+    private static TimeStamp convertTime(@NotNull final Instant javaTime)
+    {
+        return new TimeStamp()
+                .setTime(javaTime.toEpochMilli());
     }
 
     /**
@@ -218,194 +391,6 @@ public final class SchemaUtils
         return !name.equals("system")
             && !name.startsWith("system_")
             && !name.startsWith("sidecar_");
-    }
-
-    /**
-     * Private helper method for formatting Cassandra schema using Acryl DataHub client
-     */
-    @NotNull
-    private static Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final KeyspaceMetadata keyspace)
-    {
-        return keyspace.getTables().stream()
-                .flatMap(SchemaUtils::prepareSchema);
-    }
-
-    /**
-     * Private helper method for formatting Cassandra schema using Acryl DataHub client
-     */
-    @NotNull
-    @SuppressWarnings("unchecked")
-    private static Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final TableMetadata table)
-    {
-        final Stream<Function<TableMetadata, ? extends RecordTemplate>> aspects = Stream.of(
-                Throwing.function(SchemaUtils::prepareDatasetProperties),
-                Throwing.function(SchemaUtils::prepareSchemaMetadata),
-                Throwing.function(SchemaUtils::prepareContainer),
-                Throwing.function(SchemaUtils::prepareSubTypes),
-                Throwing.function(SchemaUtils::prepareDataPlatformInstance),
-                Throwing.function(SchemaUtils::prepareBrowsePathsV2));
-
-        final String dataset = getDataset(table);
-
-        return aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
-                .entityType(DATASET_VALUE)
-                .entityUrn(dataset)
-                .upsert()
-                .aspect(aspect.apply(table))
-                .build());
-    }
-
-    /**
-     * Private helper method for preparing the Dataset Properties aspect
-     */
-    @NotNull
-    private static DatasetProperties prepareDatasetProperties(@NotNull final TableMetadata table)
-    {
-        DatasetProperties properties = new DatasetProperties()
-                .setName(table.getName())
-                .setQualifiedName(table.getKeyspace().getName() + "." + table.getName());
-
-        final String comment = table.getOptions().getComment();
-        if (comment != null)
-        {
-            properties = properties.setDescription(comment);
-        }
-
-        // TODO(ysemchyshyn): It is desirable to also obtain access timestamps, but the necessary permissions may be lacking
-        //                    if (...)
-        //                    {
-        //                        properties = properties
-        //                                .setCreated(convertTime(...))
-        //                                .setLastModified(convertTime(...));
-        //                    }
-
-        return properties;
-    }
-
-    /**
-     * Private helper method for preparing the Schema Metadata aspect
-     */
-    @NotNull
-    private static SchemaMetadata prepareSchemaMetadata(@NotNull final TableMetadata table)
-    {
-        final SchemaFieldArray fields = new SchemaFieldArray();
-        table.getColumns().stream()
-                .flatMap(SchemaUtils::convertColumn)
-                .forEach(fields::add);
-
-        final SchemaMetadata.PlatformSchema schema = new SchemaMetadata.PlatformSchema();
-        schema.setOtherSchema(new OtherSchema().setRawSchema(SCHEMA));
-        final String hash = DigestUtils.sha1Hex(SCHEMA);
-
-        return new SchemaMetadata()
-                .setSchemaName(table.getName())
-                .setPlatform(new DataPlatformUrn(PLATFORM_URN))
-                .setVersion(VERSION_VALUE)
-                .setFields(fields)
-                .setPlatformSchema(schema)
-                .setHash(hash);
-    }
-
-    /**
-     * Private helper method for preparing the Container aspect
-     */
-    @NotNull
-    private static Container prepareContainer(@NotNull final TableMetadata table) throws URISyntaxException {
-        final String container = getContainer(table);
-
-        return new Container()
-                .setContainer(new Urn(container));
-    }
-
-    /**
-     * Private helper method for preparing the Sub Type aspect
-     */
-    @NotNull
-    private static SubTypes prepareSubTypes(@NotNull final TableMetadata table)
-    {
-        return new SubTypes()
-                .setTypeNames(new StringArray(TABLE_VALUE));
-    }
-
-    /**
-     * Private helper method for preparing the Data Platform Instance aspect
-     */
-    @NotNull
-    private static DataPlatformInstance prepareDataPlatformInstance(@NotNull final TableMetadata table) throws URISyntaxException
-    {
-        final String instance = getInstance(table);
-
-        return new DataPlatformInstance()
-                .setPlatform(new Urn(PLATFORM_URN))
-                .setInstance(new Urn(instance));
-    }
-
-    /**
-     * Private helper method for preparing the Browse Paths v.2 aspect
-     */
-    @NotNull
-    private static BrowsePathsV2 prepareBrowsePathsV2(@NotNull final TableMetadata table) throws URISyntaxException
-    {
-        final String container = getContainer(table);
-        final BrowsePathEntryArray path = new BrowsePathEntryArray(
-                new BrowsePathEntry().setId(ENVIRONMENT),
-                new BrowsePathEntry().setId(APPLICATION),
-                new BrowsePathEntry().setId(CLUSTER),
-                new BrowsePathEntry()
-                        .setId(container)
-                        .setUrn(new Urn(container)));
-
-        return new BrowsePathsV2()
-                .setPath(path);
-    }
-
-    /**
-     * Private helper method for retrieving the Instance value
-     */
-    @NotNull
-    private static String getInstance(@NotNull final TableMetadata table)
-    {
-        return String.format("%s:%s",
-                INSTANCE_URN,
-                IDENTIFIER);
-    }
-
-    /**
-     * Private helper method for retrieving the Container value
-     */
-    @NotNull
-    private static String getContainer(@NotNull final TableMetadata table)
-    {
-        return String.format("%s:%s_%s",
-                CONTAINER_URN,
-                IDENTIFIER,
-                table.getKeyspace().getName());
-    }
-
-    /**
-     * Private helper method for retrieving the URN value
-     */
-    @NotNull
-    private static String getDataset(@NotNull final TableMetadata table)
-    {
-        return String.format("%s:(%s,%s.%s.%s,%s)",
-                DATASET_URN,
-                PLATFORM_URN,
-                IDENTIFIER,
-                table.getKeyspace().getName(),
-                table.getName(),
-                ENVIRONMENT);
-    }
-
-    /**
-     * Private helper method for converting a Java timestamp into the DataHub timestamp
-     */
-    @NotNull
-    @SuppressWarnings("unused")
-    private static TimeStamp convertTime(@NotNull final Instant javaTime)
-    {
-        return new TimeStamp()
-                .setTime(javaTime.toEpochMilli());
     }
 
     /**
@@ -426,7 +411,10 @@ public final class SchemaUtils
      * Private helper method for converting Cassandra's single data type into a non-empty collection of DataHub's field definitions
      */
     @NotNull
-    private static Stream<SchemaField> convertType(@NotNull final String name, @NotNull final DataType type, final boolean partition, final boolean key)
+    private static Stream<SchemaField> convertType(@NotNull final String name,
+                                                   @NotNull final DataType type,
+                                                   final boolean partition,
+                                                   final boolean key)
     {
         if (type instanceof UserType)
         {
@@ -471,7 +459,8 @@ public final class SchemaUtils
     /**
      * Private helper method for extracting the Cassandra schema from DataStax driver
      */
-    private static void writeSchema(@NotNull final Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> schema, @NotNull final Path file)
+    private static void writeSchema(@NotNull final Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> schema,
+                                    @NotNull final Path file)
     {
         final FileEmitterConfig config = FileEmitterConfig.builder()
                 .fileName(file.toString())
@@ -484,68 +473,6 @@ public final class SchemaUtils
         catch (final Exception exception)
         {
             throw new RuntimeException("Cannot write extracted schema into the temporary file", exception);
-        }
-    }
-
-    /**
-     * Temporary file for formatted Cassandra schema
-     * (necessary because DataHub API does not support in-memory extraction)
-     */
-    private static class TemporaryFile implements AutoCloseable
-    {
-        private static final String PREFIX = "cassandra-schema-";
-        private static final String EXTENSION = ".json";
-
-        private final Logger logger;
-
-        public final Path path;
-
-        /**
-         * Creates a temporary file for formatted Cassandra schema
-         */
-        public TemporaryFile(@NotNull final Logger logger) throws IOException
-        {
-            this.logger = logger;
-
-            try
-            {
-                path = Files.createTempFile(PREFIX, EXTENSION);
-            }
-            catch (final Exception exception)
-            {
-                throw new IOException("Cannot create a temporary file for schema extraction", exception);
-            }
-        }
-
-        /**
-         * Reads formatted Cassandra schema from the temporary file
-         */
-        public String content() throws IOException
-        {
-            try
-            {
-                return new String(Files.readAllBytes(path));
-            }
-            catch (final Exception exception)
-            {
-                throw new IOException("Cannot read extracted schema from the temporary file", exception);
-            }
-        }
-
-        /**
-         * Deletes the temporary file with formatted Cassandra schema
-         */
-        @Override
-        public void close()
-        {
-            try
-            {
-                Files.delete(path);
-            }
-            catch (final Exception exception)
-            {
-                logger.warn("Cannot delete the temporary file with extracted schema", exception);
-            }
         }
     }
 }

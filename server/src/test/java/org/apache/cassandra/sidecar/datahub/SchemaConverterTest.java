@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.cassandra.sidecar.utils;
+package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
@@ -40,10 +40,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link SchemaUtils}
+ * Unit tests for {@link SchemaConverter}
  */
-class SchemaUtilsTest
+class SchemaConverterTest
 {
+    private static final IdentifiersProvider IDENTIFIERS = new IdentifiersProvider() {};
+    private static final SchemaConverter CONVERTER = new SchemaConverter(IDENTIFIERS);
+
     @Test
     void testEmptyKeyspace() throws IOException
     {
@@ -56,7 +59,7 @@ class SchemaUtilsTest
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(Collections.emptyList());
 
-        final String actual = SchemaUtils.extractSchema(cluster);
+        final String actual = CONVERTER.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/empty_keyspace.json");
 
         assertEquals(expected, actual);
@@ -78,9 +81,10 @@ class SchemaUtilsTest
         when(table.getKeyspace()).thenReturn(keyspace);
         when(table.getName()).thenReturn("sample_table");
         when(table.getOptions()).thenReturn(options);
+        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
 
-        final String actual = SchemaUtils.extractSchema(cluster);
+        final String actual = CONVERTER.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/empty_table.json");
 
         assertEquals(expected, actual);
@@ -114,10 +118,11 @@ class SchemaUtilsTest
         when(table.getKeyspace()).thenReturn(keyspace);
         when(table.getName()).thenReturn("sample_table");
         when(table.getOptions()).thenReturn(options);
-        when(options.getComment()).thenReturn("table comment");
         when(table.getColumns()).thenReturn(List.of(pk1, pk2, ck1, ck2, c1, c2, c3, c4, c5, c6, c7, c8));
         when(table.getPartitionKey()).thenReturn(List.of(pk1, pk2));
         when(table.getClusteringColumns()).thenReturn(List.of(ck1, ck2));
+        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
+        when(options.getComment()).thenReturn("table comment");
         when(pk1.getParent()).thenReturn(table);
         when(pk1.getName()).thenReturn("pk1");
         when(pk1.getType()).thenReturn(DataType.cint());
@@ -155,7 +160,7 @@ class SchemaUtilsTest
         when(c8.getName()).thenReturn("c8");
         when(c8.getType()).thenReturn(DataType.map(DataType.timestamp(), DataType.inet(), false));
 
-        final String actual = SchemaUtils.extractSchema(cluster);
+        final String actual = CONVERTER.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/primitive_types.json");
 
         assertEquals(expected, actual);
@@ -191,6 +196,7 @@ class SchemaUtilsTest
         when(table.getColumns()).thenReturn(List.of(pk, ck, udt1));
         when(table.getPartitionKey()).thenReturn(List.of(pk));
         when(table.getClusteringColumns()).thenReturn(List.of(ck));
+        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
         when(pk.getParent()).thenReturn(table);
         when(pk.getName()).thenReturn("pk");
@@ -224,7 +230,7 @@ class SchemaUtilsTest
         when(udt2c2.getName()).thenReturn("c2");
         when(udt2c2.getType()).thenReturn(DataType.cboolean());
 
-        final String actual = SchemaUtils.extractSchema(cluster);
+        final String actual = CONVERTER.extractSchema(cluster);
         final String expected = IOUtils.readFully("/datahub/user_types.json");
 
         assertEquals(expected, actual);

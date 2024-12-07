@@ -88,7 +88,8 @@ public abstract class IntegrationTestBase
     protected static final String WITH_COMPACTION_DISABLED = " WITH COMPACTION = {\n" +
                                                              "   'class': 'SizeTieredCompactionStrategy', \n" +
                                                              "   'enabled': 'false' }";
-    private static final String TEST_TABLE_PREFIX = "testtable";
+    protected static final String TEST_TABLE_PREFIX = "testtable";
+    protected static final String DATA_CENTER_PREFIX = "datacenter";
     private static final AtomicInteger TEST_TABLE_ID = new AtomicInteger(0);
     protected Logger logger = LoggerFactory.getLogger(this.getClass());
     protected Vertx vertx;
@@ -230,7 +231,7 @@ public abstract class IntegrationTestBase
 
     protected void createTestKeyspace()
     {
-        createTestKeyspace(ImmutableMap.of("datacenter1", 1));
+        createTestKeyspace(ImmutableMap.of(DATA_CENTER_PREFIX + 1, 1));
     }
 
     protected void createTestKeyspace(Map<String, Integer> rf)

@@ -56,7 +56,7 @@
     "changeType" : "UPSERT",
     "aspect" : {
         "contentType" : "application/json",
-        "value" : "{\"path\":[{\"id\":\"Environment\"},{\"id\":\"Application\"},{\"id\":\"cluster2\"},{\"urn\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_testkeyspace\",\"id\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_testkeyspace\"}]}"
+        "value" : "{\"path\":[{\"id\":\"Environment\"},{\"id\":\"Application\"},{\"id\":\"cluster\"},{\"urn\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_testkeyspace\",\"id\":\"urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_testkeyspace\"}]}"
     }
 }
 ]

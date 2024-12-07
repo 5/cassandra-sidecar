@@ -85,8 +85,8 @@ public class SchemaConverter
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaConverter.class);
 
     // Regular expression used to extract or validate {@code CREATE TABLE} statements
-    private static final Pattern TABLE_SCHEMA = Pattern.compile("\\bCREATE\\s+TABLE\\s+(\\S+).*?;", Pattern.CASE_INSENSITIVE
-                                                                                                  | Pattern.DOTALL);
+    private static final Pattern TABLE_SCHEMA = Pattern.compile("\\bCREATE\\s+TABLE\\s+(\\S+).*?;",
+                                                                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     // Constant URNs used in the creation of DataHub aspects
     private static final String CONTAINER_URN = "urn:li:container";

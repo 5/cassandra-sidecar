@@ -42,7 +42,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link SchemaConverter}
  */
-class SchemaConverterTest
+final class SchemaConverterTest
 {
     private static final IdentifiersProvider IDENTIFIERS = new IdentifiersProvider() {};
     private static final SchemaConverter CONVERTER = new SchemaConverter(IDENTIFIERS);

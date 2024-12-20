@@ -20,14 +20,18 @@
 package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.KeyspaceMetadata;
-import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
 /**
- * A simple interface of an identifier provider class that can
+ * An abstract class that has to be extended and instantiated for every Cassandra cluster
+ * that needs its schema converted into a DataHub-compliant JSON-formatted {@link String}.
  */
 public abstract class IdentifiersProvider
 {
@@ -37,39 +41,64 @@ public abstract class IdentifiersProvider
     static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
     static final String CONTAINER = "container";
     static final String DATASET = "dataset";
+    static final String PROD = "PROD";  // DataHub requires this to be {@code PROD} regardless
 
+    /**
+     * A public getter method that returns the name of a Cassandra Organization
+     */
     @NotNull
     public String organization()
     {
         return "Cassandra";
     }
 
+    /**
+     * A public getter method that returns the name of a Cassandra Platform
+     */
     @NotNull
     public String platform()
     {
         return "cassandra";
     }
 
+    /**
+     * A public getter method that returns the name of a Cassandra Environment
+     */
     @NotNull
     public String environment()
     {
-        return "Environment";
+        return "ENVIRONMENT";
     }
 
+    /**
+     * A public getter method that returns the name of a Cassandra Application
+     */
     @NotNull
     public String application()
     {
-        return "Application";
+        return "application";
     }
 
+    /**
+     * A public getter method that returns the name of a Cassandra Cluster
+     */
     @NotNull
-    public UUID cluster()
+    public String cluster()
+    {
+        return "cluster";
+    }
+
+    /**
+     * A public getter method that returns the identifier of a Cassandra Cluster
+     */
+    @NotNull
+    public UUID identifier()
     {
         return UUID.fromString("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
     }
 
     /**
-     * Private helper method for retrieving the URN value
+     * A public helper method that prepares the URN of a Data Platform
      */
     @NotNull
     public String urnDataPlatform()
@@ -82,7 +111,7 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * Private helper method for retrieving the Instance value
+     * A public helper method that prepares the URN of a Data Platform Instance
      */
     @NotNull
     public String urnDataPlatformInstance()
@@ -92,11 +121,11 @@ public abstract class IdentifiersProvider
                 LI,
                 DATA_PLATFORM_INSTANCE,
                 urnDataPlatform(),
-                cluster());
+                identifier());
     }
 
     /**
-     * Private helper method for retrieving the Container value
+     * A public helper method that prepares the URN of a Container
      */
     @NotNull
     public String urnContainer(@NotNull final KeyspaceMetadata keyspace)
@@ -105,12 +134,12 @@ public abstract class IdentifiersProvider
                 URN,
                 LI,
                 CONTAINER,
-                cluster(),
+                identifier(),
                 keyspace.getName());
     }
 
     /**
-     * Private helper method for retrieving the URN value
+     * A public helper method that prepares the URN of a Dataset
      */
     @NotNull
     public String urnDataset(@NotNull final TableMetadata table)
@@ -120,9 +149,66 @@ public abstract class IdentifiersProvider
                 LI,
                 DATASET,
                 urnDataPlatform(),
-                cluster(),
+                identifier(),
                 table.getKeyspace().getName(),
                 table.getName(),
-                environment());
+                PROD);
+    }
+
+    /**
+     * A public method that returns an {@link int} hash code of this object
+     */
+    @Override
+    public int hashCode()
+    {
+        return new HashCodeBuilder()
+                .append(this.organization())
+                .append(this.platform())
+                .append(this.environment())
+                .append(this.application())
+                .append(this.cluster())
+                .append(this.identifier())
+                .toHashCode();
+    }
+
+    /**
+     * A public method that compares this {@link IdentifiersProvider} object to another one
+     */
+    @Override
+    public boolean equals(@Nullable final Object other)
+    {
+        if (other instanceof IdentifiersProvider)
+        {
+            final IdentifiersProvider that = (IdentifiersProvider) other;
+            return new EqualsBuilder()
+                    .append(this.organization(), that.organization())
+                    .append(this.platform(),     that.platform())
+                    .append(this.environment(),  that.environment())
+                    .append(this.application(),  that.application())
+                    .append(this.cluster(),      that.cluster())
+                    .append(this.identifier(),   that.identifier())
+                    .isEquals();
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
+     * A public method that returns a {@link String} representation of this object
+     */
+    @Override
+    @NotNull
+    public String toString()
+    {
+        return new ToStringBuilder(this)
+                .append(this.organization())
+                .append(this.platform())
+                .append(this.environment())
+                .append(this.application())
+                .append(this.cluster())
+                .append(this.identifier())
+                .toString();
     }
 }

@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+
 package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.Metadata;

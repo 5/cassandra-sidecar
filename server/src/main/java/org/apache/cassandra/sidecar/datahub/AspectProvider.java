@@ -18,10 +18,20 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import com.datastax.driver.core.TableMetadata;
+import com.linkedin.data.template.RecordTemplate;
+import datahub.event.MetadataChangeProposalWrapper;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.stream.Stream;
+
 abstract class AspectProvider
 {
 //    protected MetadataChangeProposalWrapper<? extends RecordTemplate> createAspect/abstract prepareAspect/finalizeAspect() ???
 //    {
 //
 //    }
+
+//    protected MetadataChangeProposalWrapper<? extends RecordTemplate> convert(@NotNull final TableMetadata table)
+//    {
 }

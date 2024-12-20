@@ -19,24 +19,26 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import datahub.client.file.FileEmitter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Temporary file for formatted Cassandra schema
- * (necessary because DataHub API does not support in-memory extraction)
+ * Temporary file for formatted Cassandra schema that can be used with DataHub's
+ * {@link FileEmitter} to produce schema files in the local temporary directory
  */
+@SuppressWarnings("unused")
 final class TemporaryFile implements AutoCloseable
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TemporaryFile.class);
+
     private static final String PREFIX = "cassandra-schema-";
     private static final String EXTENSION = ".json";
-
-    @NotNull
-    private final Logger logger;
 
     @NotNull
     public final Path path;
@@ -44,10 +46,8 @@ final class TemporaryFile implements AutoCloseable
     /**
      * Creates a temporary file for formatted Cassandra schema
      */
-    public TemporaryFile(@NotNull final Logger logger) throws IOException
+    public TemporaryFile() throws IOException
     {
-        this.logger = logger;
-
         try
         {
             path = Files.createTempFile(PREFIX, EXTENSION);
@@ -86,7 +86,7 @@ final class TemporaryFile implements AutoCloseable
         }
         catch (final Exception exception)
         {
-            logger.warn("Cannot delete the temporary file with extracted schema", exception);
+            LOGGER.warn("Cannot delete the temporary file with extracted schema", exception);
         }
     }
 }

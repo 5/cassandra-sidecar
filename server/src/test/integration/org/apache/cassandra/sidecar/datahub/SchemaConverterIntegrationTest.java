@@ -53,11 +53,11 @@ final class SchemaConverterIntegrationTest extends IntegrationTestBase
         return schema.replaceAll("(?is)(?<=\\b(" + DATA_CENTER_PREFIX + "|"
                                                  + TEST_CLUSTER_PREFIX + "|"
                                                  + TEST_KEYSPACE + "|"
-                                                 + TEST_TABLE_PREFIX + "))\\d+", "");
+                                                 + TEST_TABLE_PREFIX + "))\\d+\\b", "");
     }
 
     @CassandraIntegrationTest
-    void testSchemaUtils() throws IOException
+    void testSchemaConverter() throws IOException
     {
         // Prepare a test keyspace, a test table, and a number of test UDTs;
         // the goal is to cover all supported data types and their combinations

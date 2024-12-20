@@ -27,6 +27,8 @@ import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.UserType;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
@@ -37,8 +39,14 @@ import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
+import com.linkedin.container.ContainerProperties;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.dataplatform.DataPlatformInfo;
+import com.linkedin.dataplatform.PlatformType;
+import com.linkedin.dataplatforminstance.DataPlatformInstanceProperties;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
@@ -66,7 +74,9 @@ import org.slf4j.LoggerFactory;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -88,16 +98,16 @@ public class SchemaConverter
     private static final Pattern TABLE_SCHEMA = Pattern.compile("\\bCREATE\\s+TABLE\\s+(\\S+).*?;",
                                                                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
-    // Constant URNs used in the creation of DataHub aspects
-    private static final String CONTAINER_URN = "urn:li:container";
-    private static final String DATASET_URN   = "urn:li:dataset";
-    private static final String INSTANCE_URN  = "urn:li:dataPlatformInstance";
-    private static final String PLATFORM_URN  = "urn:li:dataPlatform:cassandra-apple";
+    // Custom property names used in creation of some DataHub aspects
+    public static final String ENVIRONMENT_PROPERTY = "environment";
+    public static final String APPLICATION_PROPERTY = "application";
+    public static final String CLUSTER_PROPERTY     = "cluster";
 
-    // Constant values used in the creation of DataHub aspects
-    private static final String DATASET_VALUE = "dataset";
-    private static final String TABLE_VALUE   = "table";
-    private static final long   VERSION_VALUE = 1L;
+    // Constant values used in creation of some DataHub aspects
+    private static final long   VERSION_VALUE   = 1L;
+    private static final String DELIMITER_VALUE = ".";
+    private static final String TABLE_VALUE     = "table";
+    private static final String KEYSPACE_VALUE  = "keyspace";
 
     // Names of the data types recognized by the DataHub
     private static final SchemaFieldDataType.Type ARRAY_TYPE   = SchemaFieldDataType.Type.create(new ArrayType());
@@ -112,6 +122,7 @@ public class SchemaConverter
 
     // Mappings from each Cassandra data type into the corresponding DataHub data type
     private static final Map<DataType.Name, SchemaFieldDataType.Type> TYPES = new HashMap<>();
+
     static
     {
         TYPES.put(DataType.Name.ASCII,     STRING_TYPE);
@@ -140,14 +151,36 @@ public class SchemaConverter
         TYPES.put(DataType.Name.VARINT,    NUMBER_TYPE);
     }
 
+    // Instance fields that deterministically define the conversion behavior
     @NotNull
     protected final IdentifiersProvider identifiers;
-
+    @NotNull
+    protected final List<ClusterConverter> clusterConverters = new ArrayList<>();
+    @NotNull
+    protected final List<KeyspaceConverter> keyspaceConverters = new ArrayList<>();
+    @NotNull
+    protected final List<TableConverter> tableConverters = new ArrayList<>();
     protected String clusterName;
 
     @Inject
-    public SchemaConverter(@NotNull final IdentifiersProvider identifiers)  {
+    public SchemaConverter(@NotNull final IdentifiersProvider identifiers)
+    {
         this.identifiers = identifiers;
+    }
+
+    public void addClusterConverter(@NotNull final ClusterConverter converter)
+    {
+        clusterConverters.add(converter);
+    }
+
+    public void addKeyspaceConverter(@NotNull final KeyspaceConverter converter)
+    {
+        keyspaceConverters.add(converter);
+    }
+
+    public void addTableConverter(@NotNull final TableConverter converter)
+    {
+        tableConverters.add(converter);
     }
 
     /**
@@ -160,7 +193,7 @@ public class SchemaConverter
     @NotNull
     public String extractSchema(@NotNull final Cluster cluster)
     {
-        this.clusterName = cluster.getClusterName();
+        this.clusterName = cluster.getMetadata().getClusterName();
 
         try (final TemporaryFile file = new TemporaryFile(LOGGER))
         {
@@ -177,28 +210,55 @@ public class SchemaConverter
     }
 
     /**
-     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     * Private helper method for preparing cluster schema using Acryl DataHub client
      */
     @NotNull
+    @SuppressWarnings({"unchecked", "UnstableApiUsage"})
     private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
     {
-        return metadata.getKeyspaces().stream()
-                .filter(SchemaConverter::neitherVirtualNorSystem)
-                .flatMap(this::prepareSchema);
+        final Stream<Function<Metadata, ? extends RecordTemplate>> aspects = Stream.of(
+                Throwing.function(this::prepareDataPlatformInfo_C));
+
+        Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> refactorMe = aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
+                .entityType(IdentifiersProvider.DATA_PLATFORM)
+                .entityUrn(identifiers.urnDataPlatform())
+                .upsert()
+                .aspect(aspect.apply(metadata))
+                .build());
+
+        return Streams.concat(refactorMe,
+                metadata.getKeyspaces().stream()
+                        .filter(this::neitherVirtualNorSystem)
+                        .flatMap(this::prepareSchema));
     }
 
     /**
-     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     * Private helper method for preparing keyspace schema using Acryl DataHub client
      */
     @NotNull
+    @SuppressWarnings({"unchecked", "UnstableApiUsage"})
     private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final KeyspaceMetadata keyspace)
     {
-        return keyspace.getTables().stream()
-                .flatMap(this::prepareSchema);
+        final Stream<Function<KeyspaceMetadata, ? extends RecordTemplate>> aspects = Stream.of(
+                Throwing.function(this::prepareContainerProperties_KS),
+                Throwing.function(this::prepareDataPlatformInstance_KS),
+                Throwing.function(this::prepareDataPlatformInstanceProperties_KS),
+                Throwing.function(this::prepareBrowsePathsV2_KS));
+
+        Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> refactorMe = aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
+                .entityType(IdentifiersProvider.CONTAINER)
+                .entityUrn(identifiers.urnContainer(keyspace))
+                .upsert()
+                .aspect(aspect.apply(keyspace))
+                .build());
+
+        return Streams.concat(refactorMe,
+                keyspace.getTables().stream()
+                        .flatMap(this::prepareSchema));
     }
 
     /**
-     * Private helper method for formatting Cassandra schema using Acryl DataHub client
+     * Private helper method for preparing table schema using Acryl DataHub client
      */
     @NotNull
     @SuppressWarnings("unchecked")
@@ -210,16 +270,28 @@ public class SchemaConverter
                 Throwing.function(this::prepareContainer),
                 Throwing.function(this::prepareSubTypes),
                 Throwing.function(this::prepareDataPlatformInstance),
+                Throwing.function(this::prepareDataPlatformInstanceProperties),
                 Throwing.function(this::prepareBrowsePathsV2));
 
-        final String dataset = getDataset(table);
-
         return aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
-                .entityType(DATASET_VALUE)
-                .entityUrn(dataset)
+                .entityType(IdentifiersProvider.DATASET)
+                .entityUrn(identifiers.urnDataset(table))
                 .upsert()
                 .aspect(aspect.apply(table))
                 .build());
+    }
+
+    /**
+     * Private helper method for preparing the Data Platform Info aspect
+     */
+    @NotNull
+    private DataPlatformInfo prepareDataPlatformInfo_C(@NotNull final Metadata cluster)
+    {
+        return new DataPlatformInfo()
+                .setType(PlatformType.RELATIONAL_DB)
+                .setName(identifiers.platform())
+                .setDisplayName(identifiers.organization())
+                .setDatasetNameDelimiter(DELIMITER_VALUE);
     }
 
     /**
@@ -230,7 +302,7 @@ public class SchemaConverter
     {
         DatasetProperties properties = new DatasetProperties()
                 .setName(table.getName())
-                .setQualifiedName(table.getKeyspace().getName() + "." + table.getName());
+                .setQualifiedName(table.getKeyspace().getName() + DELIMITER_VALUE + table.getName());
 
         final String comment = table.getOptions().getComment();
         if (comment != null)
@@ -269,7 +341,7 @@ public class SchemaConverter
 
         return new SchemaMetadata()
                 .setSchemaName(table.getName())
-                .setPlatform(new DataPlatformUrn(PLATFORM_URN))
+                .setPlatform(new DataPlatformUrn(identifiers.urnDataPlatform()))
                 .setVersion(VERSION_VALUE)
                 .setFields(fields)
                 .setPlatformSchema(schema)
@@ -281,7 +353,7 @@ public class SchemaConverter
      */
     @NotNull
     private Container prepareContainer(@NotNull final TableMetadata table) throws URISyntaxException {
-        final String container = getContainer(table);
+        final String container = identifiers.urnContainer(table.getKeyspace());
 
         return new Container()
                 .setContainer(new Urn(container));
@@ -303,11 +375,74 @@ public class SchemaConverter
     @NotNull
     private DataPlatformInstance prepareDataPlatformInstance(@NotNull final TableMetadata table) throws URISyntaxException
     {
-        final String instance = getInstance(table);
-
         return new DataPlatformInstance()
-                .setPlatform(new Urn(PLATFORM_URN))
-                .setInstance(new Urn(instance));
+                .setPlatform(new Urn(identifiers.urnDataPlatform()))
+                .setInstance(new Urn(identifiers.urnDataPlatformInstance()));
+    }
+
+    /**
+     * Private helper method for preparing the Data Platform Instance aspect
+     */
+    @NotNull
+    private DataPlatformInstance prepareDataPlatformInstance_KS(@NotNull final KeyspaceMetadata keyspace) throws URISyntaxException
+    {
+        return new DataPlatformInstance()
+                .setPlatform(new Urn(identifiers.urnDataPlatform()))
+                .setInstance(new Urn(identifiers.urnDataPlatformInstance()));
+    }
+
+    /**
+     * Private helper method for preparing the Container Properties aspect
+     */
+    @NotNull
+    private ContainerProperties prepareContainerProperties_KS(@NotNull final KeyspaceMetadata keyspace)
+    {
+        return new ContainerProperties()
+                .setName(keyspace.getName())
+                .setDescription(null, SetMode.REMOVE_IF_NULL);  // Keyspace-level comments are not supported by Cassandra
+    }
+
+    /**
+     * Private helper method for preparing the Data Platform Instance Properties aspect
+     */
+    @NotNull
+    private DataPlatformInstanceProperties prepareDataPlatformInstanceProperties(@NotNull final TableMetadata table)
+    {
+        final Map<String, String> refactorMe = ImmutableMap.of(
+                ENVIRONMENT_PROPERTY, identifiers.environment(),
+                APPLICATION_PROPERTY, identifiers.application(),
+                CLUSTER_PROPERTY,     clusterName);
+
+        DataPlatformInstanceProperties properties = new DataPlatformInstanceProperties()
+                .setName(table.getName())
+                .setDescription(table.getOptions().getComment())
+                .setCustomProperties(new StringMap(refactorMe));
+
+        final String comment = table.getOptions().getComment();
+        if (comment != null)
+        {
+            properties = properties
+                .setDescription(comment);
+        }
+
+         return properties;
+    }
+
+    /**
+     * Private helper method for preparing the Data Platform Instance Properties aspect
+     */
+    @NotNull
+    private DataPlatformInstanceProperties prepareDataPlatformInstanceProperties_KS(@NotNull final KeyspaceMetadata keyspace)
+    {
+        final Map<String, String> properties = ImmutableMap.of(
+                ENVIRONMENT_PROPERTY, identifiers.environment(),
+                APPLICATION_PROPERTY, identifiers.application(),
+                CLUSTER_PROPERTY,     clusterName);
+
+        return new DataPlatformInstanceProperties()
+                .setName(keyspace.getName())
+                .setDescription(null, SetMode.REMOVE_IF_NULL)  // Keyspace-level comments are not supported by Cassandra
+                .setCustomProperties(new StringMap(properties));
     }
 
     /**
@@ -316,11 +451,17 @@ public class SchemaConverter
     @NotNull
     private BrowsePathsV2 prepareBrowsePathsV2(@NotNull final TableMetadata table) throws URISyntaxException
     {
-        final String container = getContainer(table);
+        final String container = identifiers.urnContainer(table.getKeyspace());
         final BrowsePathEntryArray path = new BrowsePathEntryArray(
-                new BrowsePathEntry().setId(identifiers.environment()),
-                new BrowsePathEntry().setId(identifiers.application()),
-                new BrowsePathEntry().setId(clusterName),
+                new BrowsePathEntry()
+                        .setId(identifiers.environment())
+                        .setUrn(null, SetMode.REMOVE_IF_NULL),
+                new BrowsePathEntry()
+                        .setId(identifiers.application())
+                        .setUrn(null, SetMode.REMOVE_IF_NULL),
+                new BrowsePathEntry()
+                        .setId(clusterName)
+                        .setUrn(null, SetMode.REMOVE_IF_NULL),
                 new BrowsePathEntry()
                         .setId(container)
                         .setUrn(new Urn(container)));
@@ -330,41 +471,24 @@ public class SchemaConverter
     }
 
     /**
-     * Private helper method for retrieving the Instance value
+     * Private helper method for preparing the Browse Paths v.2 aspect
      */
     @NotNull
-    private String getInstance(@NotNull final TableMetadata table)
+    private BrowsePathsV2 prepareBrowsePathsV2_KS(@NotNull final KeyspaceMetadata keyspace) throws URISyntaxException
     {
-        return String.format("%s:%s",
-                INSTANCE_URN,
-                identifiers.cluster());
-    }
+        final BrowsePathEntryArray path = new BrowsePathEntryArray(
+                new BrowsePathEntry()
+                        .setId(identifiers.environment())
+                        .setUrn(null, SetMode.REMOVE_IF_NULL),
+                new BrowsePathEntry()
+                        .setId(identifiers.application())
+                        .setUrn(null, SetMode.REMOVE_IF_NULL),
+                new BrowsePathEntry()
+                        .setId(clusterName)
+                        .setUrn(null, SetMode.REMOVE_IF_NULL));
 
-    /**
-     * Private helper method for retrieving the Container value
-     */
-    @NotNull
-    private String getContainer(@NotNull final TableMetadata table)
-    {
-        return String.format("%s:%s_%s",
-                CONTAINER_URN,
-                identifiers.cluster(),
-                table.getKeyspace().getName());
-    }
-
-    /**
-     * Private helper method for retrieving the URN value
-     */
-    @NotNull
-    private String getDataset(@NotNull final TableMetadata table)
-    {
-        return String.format("%s:(%s,%s.%s.%s,%s)",
-                DATASET_URN,
-                PLATFORM_URN,
-                identifiers.cluster(),
-                table.getKeyspace().getName(),
-                table.getName(),
-                identifiers.environment());
+        return new BrowsePathsV2()
+                .setPath(path);
     }
 
     /**
@@ -378,9 +502,9 @@ public class SchemaConverter
     }
 
     /**
-     * Private helper method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
+     * Protected helper method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
      */
-    private static boolean neitherVirtualNorSystem(@NotNull final KeyspaceMetadata keyspace)
+    protected boolean neitherVirtualNorSystem(@NotNull final KeyspaceMetadata keyspace)
     {
         if (keyspace.isVirtual())
         {
@@ -390,7 +514,9 @@ public class SchemaConverter
         final String name = keyspace.getName();
         return !name.equals("system")
             && !name.startsWith("system_")
-            && !name.startsWith("sidecar_");
+            && !name.equals("sidecar_internal")
+            && !name.equals("cie_internal")        // todo: push into apple-internal subclass or a configuration property
+            && !name.startsWith("cie_internal_");  // todo: push into apple-internal subclass or a configuration property
     }
 
     /**
@@ -421,16 +547,17 @@ public class SchemaConverter
             final UserType udt = (UserType) type;
 
             return udt.getFieldNames().stream()
-                    .flatMap(field -> convertType(name + "." + field, udt.getFieldType(field), partition, key));
+                    .flatMap(field -> convertType(name + DELIMITER_VALUE + field, udt.getFieldType(field), partition, key));
         }
         else
         {
             final DataType.Name cassandraType = type.getName();
             final SchemaFieldDataType datahubType = convertType(cassandraType);
 
-            return Stream.of(new SchemaField()  // No call to {@link SchemaField.setDescription()} since column-level comments are not supported by Cassandra
+            return Stream.of(new SchemaField()
                     .setFieldPath(name)
                     .setNullable(!partition)  // Everything is potentially nullable in Cassandra except for the partition key
+                    .setDescription(null, SetMode.REMOVE_IF_NULL)  // Column-level comments are not supported by Cassandra
                     .setType(datahubType)
                     .setNativeDataType(cassandraType.toString().toLowerCase())
                     .setIsPartitioningKey(partition)

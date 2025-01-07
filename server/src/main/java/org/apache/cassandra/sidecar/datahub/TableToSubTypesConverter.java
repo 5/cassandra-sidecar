@@ -19,19 +19,32 @@
 package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.TableMetadata;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.common.SubTypes;
+import com.linkedin.data.template.StringArray;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.stream.Stream;
-
-abstract class AspectProvider
+/**
+ * Converter class for preparing the Sub Types aspect
+ */
+public class TableToSubTypesConverter extends TableToAspectConverter<SubTypes>
 {
-//    protected MetadataChangeProposalWrapper<? extends RecordTemplate> createAspect/abstract prepareAspect/finalizeAspect() ???
-//    {
-//
-//    }
+    private static final String TABLE = "table";
 
-//    protected MetadataChangeProposalWrapper<? extends RecordTemplate> convert(@NotNull final TableMetadata table)
-//    {
+    public TableToSubTypesConverter(@NotNull final IdentifiersProvider identifiers)
+    {
+        super(identifiers);
+    }
+
+    @Override
+    @NotNull
+    public MetadataChangeProposalWrapper<SubTypes> convert(@NotNull final TableMetadata table)
+    {
+        final String urn = identifiers.urnDataset(table);
+
+        final SubTypes aspect = new SubTypes()
+                .setTypeNames(new StringArray(TABLE));
+
+        return wrap(urn, aspect);
+    }
 }

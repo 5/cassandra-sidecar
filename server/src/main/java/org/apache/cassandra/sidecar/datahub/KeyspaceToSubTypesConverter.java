@@ -16,17 +16,35 @@
  * limitations under the License.
  */
 
-
 package org.apache.cassandra.sidecar.datahub;
 
-import com.datastax.driver.core.Metadata;
-import com.linkedin.data.template.RecordTemplate;
+import com.datastax.driver.core.KeyspaceMetadata;
+import com.linkedin.common.SubTypes;
+import com.linkedin.data.template.StringArray;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
 
-@FunctionalInterface
-public interface ClusterConverter
+/**
+ * Converter class for preparing the Sub Types aspect
+ */
+public class KeyspaceToSubTypesConverter extends KeyspaceToAspectConverter<SubTypes>
 {
+    private static final String KEYSPACE = "keyspace";
+
+    public KeyspaceToSubTypesConverter(@NotNull final IdentifiersProvider identifiers)
+    {
+        super(identifiers);
+    }
+
+    @Override
     @NotNull
-    public abstract MetadataChangeProposalWrapper<? extends RecordTemplate> convert(@NotNull final Metadata cluster);
+    public MetadataChangeProposalWrapper<SubTypes> convert(@NotNull final KeyspaceMetadata keyspace)
+    {
+        final String urn = identifiers.urnContainer(keyspace);
+
+        final SubTypes aspect = new SubTypes()
+                .setTypeNames(new StringArray(KEYSPACE));
+
+        return wrap(urn, aspect);
+    }
 }

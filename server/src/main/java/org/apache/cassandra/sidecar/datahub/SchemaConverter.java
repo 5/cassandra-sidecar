@@ -19,166 +19,85 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
-import com.datastax.driver.core.AbstractTableMetadata;
 import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ColumnMetadata;
-import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.UserType;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
-import com.linkedin.common.BrowsePathEntry;
-import com.linkedin.common.BrowsePathEntryArray;
-import com.linkedin.common.BrowsePathsV2;
-import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.SubTypes;
-import com.linkedin.common.TimeStamp;
-import com.linkedin.common.urn.DataPlatformUrn;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.container.Container;
-import com.linkedin.container.ContainerProperties;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
-import com.linkedin.data.template.StringMap;
-import com.linkedin.dataplatform.DataPlatformInfo;
-import com.linkedin.dataplatform.PlatformType;
-import com.linkedin.dataplatforminstance.DataPlatformInstanceProperties;
-import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.schema.ArrayType;
-import com.linkedin.schema.BooleanType;
-import com.linkedin.schema.BytesType;
-import com.linkedin.schema.DateType;
-import com.linkedin.schema.MapType;
-import com.linkedin.schema.NullType;
-import com.linkedin.schema.NumberType;
-import com.linkedin.schema.OtherSchema;
-import com.linkedin.schema.SchemaField;
-import com.linkedin.schema.SchemaFieldArray;
-import com.linkedin.schema.SchemaFieldDataType;
-import com.linkedin.schema.SchemaMetadata;
-import com.linkedin.schema.StringType;
-import com.linkedin.schema.TimeType;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.apache.cassandra.sidecar.utils.Throwing;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.net.URISyntaxException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
  * Utility class for converting a Cassandra schema into a DataHub-compliant JSON-formatted {@link String}.
  * <p>
- * Note that the extensive usage of {@link Stream<>} types here enables late creation and early destruction
- * of DataHub aspect objects (since all of them can potentially take up to a gigabyte).
+ * Note that the extensive usage of {@link Stream<>} types here enables late creation and early destruction of DataHub aspect
+ * objects while the schema is being converted (since all of them can potentially take up to a gigabyte on largest clusters).
  */
 public class SchemaConverter
 {
-    // An instance of logger to use
-    private static final Logger LOGGER = LoggerFactory.getLogger(SchemaConverter.class);
+    protected static final int KB = 1024;
+    protected static final int MB = KB * KB;
 
-    // Constant sizes used for memory pre-allocation
-    private static final int KB = 1024;
-    private static final int MB = KB * KB;
-
-    // Custom property names used in creation of some DataHub aspects
-    public static final String ENVIRONMENT_PROPERTY = "environment";
-    public static final String APPLICATION_PROPERTY = "application";
-    public static final String CLUSTER_PROPERTY     = "cluster";
-
-    // Constant values used in creation of some DataHub aspects
-    private static final long   VERSION_VALUE   = 1L;
-    private static final String DELIMITER_VALUE = ".";
-    private static final String TABLE_VALUE     = "table";
-    private static final String KEYSPACE_VALUE  = "keyspace";
-
-    // Names of the data types recognized by the DataHub
-    private static final SchemaFieldDataType.Type ARRAY_TYPE   = SchemaFieldDataType.Type.create(new ArrayType());
-    private static final SchemaFieldDataType.Type BOOLEAN_TYPE = SchemaFieldDataType.Type.create(new BooleanType());
-    private static final SchemaFieldDataType.Type BYTES_TYPE   = SchemaFieldDataType.Type.create(new BytesType());
-    private static final SchemaFieldDataType.Type DATE_TYPE    = SchemaFieldDataType.Type.create(new DateType());
-    private static final SchemaFieldDataType.Type MAP_TYPE     = SchemaFieldDataType.Type.create(new MapType());
-    private static final SchemaFieldDataType.Type NULL_TYPE    = SchemaFieldDataType.Type.create(new NullType());
-    private static final SchemaFieldDataType.Type NUMBER_TYPE  = SchemaFieldDataType.Type.create(new NumberType());
-    private static final SchemaFieldDataType.Type STRING_TYPE  = SchemaFieldDataType.Type.create(new StringType());
-    private static final SchemaFieldDataType.Type TIME_TYPE    = SchemaFieldDataType.Type.create(new TimeType());
-
-    // Mappings from each Cassandra data type into the corresponding DataHub data type
-    private static final Map<DataType.Name, SchemaFieldDataType.Type> TYPES = new HashMap<>();
-
-    static
-    {
-        TYPES.put(DataType.Name.ASCII,     STRING_TYPE);
-        TYPES.put(DataType.Name.BIGINT,    NUMBER_TYPE);
-        TYPES.put(DataType.Name.BLOB,      BYTES_TYPE);
-        TYPES.put(DataType.Name.BOOLEAN,   BOOLEAN_TYPE);
-        TYPES.put(DataType.Name.COUNTER,   NUMBER_TYPE);
-        TYPES.put(DataType.Name.DATE,      DATE_TYPE);
-        TYPES.put(DataType.Name.DECIMAL,   NUMBER_TYPE);
-        TYPES.put(DataType.Name.DOUBLE,    NUMBER_TYPE);
-        TYPES.put(DataType.Name.FLOAT,     NUMBER_TYPE);
-        TYPES.put(DataType.Name.INET,      STRING_TYPE);
-        TYPES.put(DataType.Name.INT,       NUMBER_TYPE);
-        TYPES.put(DataType.Name.LIST,      ARRAY_TYPE);
-        TYPES.put(DataType.Name.MAP,       MAP_TYPE);
-        TYPES.put(DataType.Name.SET,       ARRAY_TYPE);
-        TYPES.put(DataType.Name.SMALLINT,  NUMBER_TYPE);
-        TYPES.put(DataType.Name.TEXT,      STRING_TYPE);
-        TYPES.put(DataType.Name.TIME,      TIME_TYPE);
-        TYPES.put(DataType.Name.TIMESTAMP, DATE_TYPE);
-        TYPES.put(DataType.Name.TIMEUUID,  STRING_TYPE);
-        TYPES.put(DataType.Name.TINYINT,   NUMBER_TYPE);
-        TYPES.put(DataType.Name.TUPLE,     ARRAY_TYPE);
-        TYPES.put(DataType.Name.UUID,      STRING_TYPE);
-        TYPES.put(DataType.Name.VARCHAR,   STRING_TYPE);
-        TYPES.put(DataType.Name.VARINT,    NUMBER_TYPE);
-    }
-
-    // Instance fields that deterministically define the conversion behavior
     @NotNull
     protected final IdentifiersProvider identifiers;
     @NotNull
-    protected final List<ClusterConverter> clusterConverters = new ArrayList<>();
+    protected final List<ClusterToAspectConverter<? extends RecordTemplate>> clusterConverters;
     @NotNull
-    protected final List<KeyspaceConverter> keyspaceConverters = new ArrayList<>();
+    protected final List<KeyspaceToAspectConverter<? extends RecordTemplate>> keyspaceConverters;
     @NotNull
-    protected final List<TableConverter> tableConverters = new ArrayList<>();
+    protected final List<TableToAspectConverter<? extends RecordTemplate>> tableConverters;
 
+    /**
+     * The public constructor that instantiates {@link SchemaConverter} with default configuration
+     *
+     * @param identifiers an instance of {@link IdentifiersProvider} to use
+     */
     @Inject
     public SchemaConverter(@NotNull final IdentifiersProvider identifiers)
     {
-        this.identifiers = identifiers;
-    }
-
-    public void addClusterConverter(@NotNull final ClusterConverter converter)
-    {
-        clusterConverters.add(converter);
-    }
-
-    public void addKeyspaceConverter(@NotNull final KeyspaceConverter converter)
-    {
-        keyspaceConverters.add(converter);
-    }
-
-    public void addTableConverter(@NotNull final TableConverter converter)
-    {
-        tableConverters.add(converter);
+        this(identifiers,
+             ImmutableList.of(new ClusterToDataPlatformInfoConverter(identifiers),
+                              new ClusterToDataPlatformInstancePropertiesConverter(identifiers)),
+             ImmutableList.of(new KeyspaceToContainerPropertiesConverter(identifiers),
+                              new KeyspaceToSubTypesConverter(identifiers),
+                              new KeyspaceToDataPlatformInstanceConverter(identifiers),
+                              new KeyspaceToBrowsePathsV2Converter(identifiers)),
+             ImmutableList.of(new TableToDatasetPropertiesConverter(identifiers),
+                              new TableToSchemaMetadataConverter(identifiers),
+                              new TableToContainerConverter(identifiers),
+                              new TableToSubTypesConverter(identifiers),
+                              new TableToDataPlatformInstanceConverter(identifiers),
+                              new TableToBrowsePathsV2Converter(identifiers)));
     }
 
     /**
-     * Public helper method for extracting and formatting the Cassandra schema
+     * A protected constructor that can be used to instantiate {@link SchemaConverter} with custom configuration
+     *
+     * @param identifiers an instance of {@link IdentifiersProvider} to use
+     * @param clusterConverters a {@link List} of {@link ClusterToAspectConverter} instances to use
+     * @param keyspaceConverters a {@link List} of {@link KeyspaceToAspectConverter} instances to use
+     * @param tableConverters a {@link List} of {@link TableToAspectConverter} instances to use
+     */
+    protected SchemaConverter(@NotNull final IdentifiersProvider identifiers,
+                              @NotNull final List<ClusterToAspectConverter<? extends RecordTemplate>> clusterConverters,
+                              @NotNull final List<KeyspaceToAspectConverter<? extends RecordTemplate>> keyspaceConverters,
+                              @NotNull final List<TableToAspectConverter<? extends RecordTemplate>> tableConverters)
+    {
+        this.identifiers = identifiers;
+        this.clusterConverters = clusterConverters;
+        this.keyspaceConverters = keyspaceConverters;
+        this.tableConverters = tableConverters;
+    }
+
+    /**
+     * Public method for extracting and formatting the Cassandra schema
      *
      * @param cluster a {@link Cluster} to extract Cassandra schema from
      *
@@ -203,283 +122,46 @@ public class SchemaConverter
     }
 
     /**
-     * Private helper method for preparing cluster schema using Acryl DataHub client
+     * Protected method for preparing cluster schema using Acryl DataHub client
      */
     @NotNull
-    @SuppressWarnings({"unchecked", "UnstableApiUsage"})
-    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
+    @SuppressWarnings("UnstableApiUsage")
+    protected Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final Metadata metadata)
     {
-        final Stream<Function<Metadata, ? extends RecordTemplate>> aspects = Stream.of(
-                Throwing.function(this::prepareDataPlatformInfo_C),
-                Throwing.function(this::prepareDataPlatformInstanceProperties_C));
-
-        Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> refactorMe = aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
-                .entityType(IdentifiersProvider.DATA_PLATFORM)
-                .entityUrn(identifiers.urnDataPlatform())
-                .upsert()
-                .aspect(aspect.apply(metadata))
-                .build());
-
-        return Streams.concat(refactorMe,
+        return Streams.concat(
+                clusterConverters.stream()
+                        .map(Throwing.function(converter -> converter.convert(metadata))),
                 metadata.getKeyspaces().stream()
                         .filter(this::neitherVirtualNorSystem)
                         .flatMap(this::prepareSchema));
     }
 
     /**
-     * Private helper method for preparing keyspace schema using Acryl DataHub client
+     * Protected method for preparing keyspace schema using Acryl DataHub client
      */
     @NotNull
-    @SuppressWarnings({"unchecked", "UnstableApiUsage"})
-    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final KeyspaceMetadata keyspace)
+    @SuppressWarnings("UnstableApiUsage")
+    protected Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final KeyspaceMetadata keyspace)
     {
-        final Stream<Function<KeyspaceMetadata, ? extends RecordTemplate>> aspects = Stream.of(
-                Throwing.function(this::prepareContainerProperties_KS),
-                Throwing.function(this::prepareSubTypes_KS),
-                Throwing.function(this::prepareDataPlatformInstance_KS),
-                Throwing.function(this::prepareBrowsePathsV2_KS));
-
-        Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> refactorMe = aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
-                .entityType(IdentifiersProvider.CONTAINER)
-                .entityUrn(identifiers.urnContainer(keyspace))
-                .upsert()
-                .aspect(aspect.apply(keyspace))
-                .build());
-
-        return Streams.concat(refactorMe,
+        return Streams.concat(
+                keyspaceConverters.stream()
+                        .map(Throwing.function(converter -> converter.convert(keyspace))),
                 keyspace.getTables().stream()
                         .flatMap(this::prepareSchema));
     }
 
     /**
-     * Private helper method for preparing table schema using Acryl DataHub client
+     * Protected method for preparing table schema using Acryl DataHub client
      */
     @NotNull
-    @SuppressWarnings("unchecked")
-    private Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final TableMetadata table)
+    protected Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> prepareSchema(@NotNull final TableMetadata table)
     {
-        final Stream<Function<TableMetadata, ? extends RecordTemplate>> aspects = Stream.of(
-                Throwing.function(this::prepareDatasetProperties_T),
-                Throwing.function(this::prepareSchemaMetadata_T),
-                Throwing.function(this::prepareContainer_T),
-                Throwing.function(this::prepareSubTypes_T),
-                Throwing.function(this::prepareDataPlatformInstance_T),
-                Throwing.function(this::prepareBrowsePathsV2_T));
-
-        return aspects.map(aspect -> MetadataChangeProposalWrapper.builder()
-                .entityType(IdentifiersProvider.DATASET)
-                .entityUrn(identifiers.urnDataset(table))
-                .upsert()
-                .aspect(aspect.apply(table))
-                .build());
+        return tableConverters.stream()
+                .map(Throwing.function(converter -> converter.convert(table)));
     }
 
     /**
-     * Private helper method for preparing the Data Platform Info aspect
-     */
-    @NotNull
-    private DataPlatformInfo prepareDataPlatformInfo_C(@NotNull final Metadata cluster)
-    {
-        return new DataPlatformInfo()
-                .setType(PlatformType.RELATIONAL_DB)
-                .setName(identifiers.platform())
-                .setDisplayName(identifiers.organization())
-                .setDatasetNameDelimiter(DELIMITER_VALUE);
-    }
-
-    /**
-     * Private helper method for preparing the Dataset Properties aspect
-     */
-    @NotNull
-    private DatasetProperties prepareDatasetProperties_T(@NotNull final TableMetadata table)
-    {
-        DatasetProperties properties = new DatasetProperties()
-                .setName(table.getName())
-                .setQualifiedName(table.getKeyspace().getName() + DELIMITER_VALUE + table.getName());
-
-        final String comment = table.getOptions().getComment();
-        if (comment != null)
-        {
-            properties = properties
-                .setDescription(comment);
-        }
-
-        // It is desirable to also obtain creation/modification timestamps and convert them using {@link convertTimestamp()},
-        // but the permissions necessary to access these values might be currently lacking
-        properties = properties
-                .setCreated(null, SetMode.REMOVE_IF_NULL)
-                .setLastModified(null, SetMode.REMOVE_IF_NULL);
-
-        return properties;
-    }
-
-    /**
-     * Private helper method for preparing the Schema Metadata aspect
-     */
-    @NotNull
-    private SchemaMetadata prepareSchemaMetadata_T(@NotNull final TableMetadata table)
-    {
-        final SchemaFieldArray fields = new SchemaFieldArray();
-        table.getColumns().stream()
-                .flatMap(SchemaConverter::convertColumn)
-                .forEach(fields::add);
-
-        // Use {@code CREATE TABLE} CQL statement with all associated indexes and views but without
-        // UDTs as the native schema; using {@code asCQLQuery} does not allow formatting produced CQL
-        final String cql = table.exportAsString();
-        final SchemaMetadata.PlatformSchema schema = new SchemaMetadata.PlatformSchema();
-        schema.setOtherSchema(new OtherSchema().setRawSchema(cql));
-        final String hash = DigestUtils.sha1Hex(cql);
-
-        return new SchemaMetadata()
-                .setSchemaName(table.getName())
-                .setPlatform(new DataPlatformUrn(identifiers.urnDataPlatform()))
-                .setVersion(VERSION_VALUE)
-                .setFields(fields)
-                .setPlatformSchema(schema)
-                .setHash(hash);
-    }
-
-    /**
-     * Private helper method for preparing the Container aspect
-     */
-    @NotNull
-    private Container prepareContainer_T(@NotNull final TableMetadata table) throws URISyntaxException {
-        final String container = identifiers.urnContainer(table.getKeyspace());
-
-        return new Container()
-                .setContainer(new Urn(container));
-    }
-
-    /**
-     * Private helper method for preparing the Sub Types aspect
-     */
-    @NotNull
-    private SubTypes prepareSubTypes_T(@NotNull final TableMetadata table)
-    {
-        return new SubTypes()
-                .setTypeNames(new StringArray(TABLE_VALUE));
-    }
-
-    /**
-     * Private helper method for preparing the Sub Types aspect
-     */
-    @NotNull
-    private SubTypes prepareSubTypes_KS(@NotNull final KeyspaceMetadata keyspace)
-    {
-        return new SubTypes()
-                .setTypeNames(new StringArray(KEYSPACE_VALUE));
-    }
-
-    /**
-     * Private helper method for preparing the Data Platform Instance aspect
-     */
-    @NotNull
-    private DataPlatformInstance prepareDataPlatformInstance_T(@NotNull final TableMetadata table) throws URISyntaxException
-    {
-        return new DataPlatformInstance()
-                .setPlatform(new Urn(identifiers.urnDataPlatform()))
-                .setInstance(new Urn(identifiers.urnDataPlatformInstance()));
-    }
-
-    /**
-     * Private helper method for preparing the Data Platform Instance aspect
-     */
-    @NotNull
-    private DataPlatformInstance prepareDataPlatformInstance_KS(@NotNull final KeyspaceMetadata keyspace) throws URISyntaxException
-    {
-        return new DataPlatformInstance()
-                .setPlatform(new Urn(identifiers.urnDataPlatform()))
-                .setInstance(new Urn(identifiers.urnDataPlatformInstance()));
-    }
-
-    /**
-     * Private helper method for preparing the Container Properties aspect
-     */
-    @NotNull
-    private ContainerProperties prepareContainerProperties_KS(@NotNull final KeyspaceMetadata keyspace)
-    {
-        return new ContainerProperties()
-                .setName(keyspace.getName())
-                .setDescription(null, SetMode.REMOVE_IF_NULL);  // Keyspace-level comments are not supported by Cassandra
-    }
-
-    /**
-     * Private helper method for preparing the Data Platform Instance Properties aspect
-     */
-    @NotNull
-    private DataPlatformInstanceProperties prepareDataPlatformInstanceProperties_C(@NotNull final Metadata cluster)
-    {
-        final Map<String, String> properties = ImmutableMap.of(
-                ENVIRONMENT_PROPERTY, identifiers.environment(),
-                APPLICATION_PROPERTY, identifiers.application(),
-                CLUSTER_PROPERTY,     identifiers.cluster());
-
-        return new DataPlatformInstanceProperties()
-                .setName(identifiers.cluster())
-                .setDescription(null, SetMode.REMOVE_IF_NULL)  // Cluster-level comments are not supported by Cassandra
-                .setCustomProperties(new StringMap(properties));
-    }
-
-    /**
-     * Private helper method for preparing the Browse Paths v.2 aspect
-     */
-    @NotNull
-    private BrowsePathsV2 prepareBrowsePathsV2_T(@NotNull final TableMetadata table) throws URISyntaxException
-    {
-        final String container = identifiers.urnContainer(table.getKeyspace());
-        final BrowsePathEntryArray path = new BrowsePathEntryArray(
-                new BrowsePathEntry()
-                        .setId(identifiers.environment())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL),
-                new BrowsePathEntry()
-                        .setId(identifiers.application())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL),
-                new BrowsePathEntry()
-                        .setId(identifiers.cluster())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL),
-                new BrowsePathEntry()
-                        .setId(container)
-                        .setUrn(new Urn(container)));
-
-        return new BrowsePathsV2()
-                .setPath(path);
-    }
-
-    /**
-     * Private helper method for preparing the Browse Paths v.2 aspect
-     */
-    @NotNull
-    private BrowsePathsV2 prepareBrowsePathsV2_KS(@NotNull final KeyspaceMetadata keyspace)
-    {
-        final BrowsePathEntryArray path = new BrowsePathEntryArray(
-                new BrowsePathEntry()
-                        .setId(identifiers.environment())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL),
-                new BrowsePathEntry()
-                        .setId(identifiers.application())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL),
-                new BrowsePathEntry()
-                        .setId(identifiers.cluster())
-                        .setUrn(null, SetMode.REMOVE_IF_NULL));
-
-        return new BrowsePathsV2()
-                .setPath(path);
-    }
-
-    /**
-     * Private helper method for converting a Java timestamp into the DataHub timestamp
-     */
-    @NotNull
-    @SuppressWarnings("unused")
-    private static TimeStamp convertTime(@NotNull final Instant javaTime)
-    {
-        return new TimeStamp()
-                .setTime(javaTime.toEpochMilli());
-    }
-
-    /**
-     * Protected helper method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
+     * Protected method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
      */
     protected boolean neitherVirtualNorSystem(@NotNull final KeyspaceMetadata keyspace)
     {
@@ -492,71 +174,7 @@ public class SchemaConverter
         return !name.equals("system")
             && !name.startsWith("system_")
             && !name.equals("sidecar_internal")
-            && !name.equals("cie_internal")        // TODO: Move into Apple-internal subclass or configuration property
-            && !name.startsWith("cie_internal_");  // TODO: Move into Apple-internal subclass or configuration property
-    }
-
-    /**
-     * Private helper method for converting single Cassandra column metadata into a collection of at least one DataHub schema field definition
-     */
-    @NotNull
-    private static Stream<SchemaField> convertColumn(@NotNull final ColumnMetadata column)
-    {
-        final DataType type = column.getType();
-        final AbstractTableMetadata table = column.getParent();
-        final boolean partition = table.getPartitionKey().contains(column);
-        final boolean key = partition || table.getClusteringColumns().contains(column);  // Only check clustering key if needed
-
-        return convertType(column.getName(), type, partition, key);
-    }
-
-    /**
-     * Private helper method for converting Cassandra's single data type into a non-empty collection of DataHub's field definitions
-     */
-    @NotNull
-    private static Stream<SchemaField> convertType(@NotNull final String name,
-                                                   @NotNull final DataType type,
-                                                   final boolean partition,
-                                                   final boolean key)
-    {
-        if (type instanceof UserType)
-        {
-            final UserType udt = (UserType) type;
-
-            return udt.getFieldNames().stream()
-                    .flatMap(field -> convertType(name + DELIMITER_VALUE + field, udt.getFieldType(field), partition, key));
-        }
-        else
-        {
-            final DataType.Name cassandraType = type.getName();
-            final SchemaFieldDataType datahubType = convertType(cassandraType);
-
-            return Stream.of(new SchemaField()
-                    .setFieldPath(name)
-                    .setNullable(!partition)  // Everything is potentially nullable in Cassandra except for the partition key
-                    .setDescription(null, SetMode.REMOVE_IF_NULL)  // Column-level comments are not supported by Cassandra
-                    .setType(datahubType)
-                    .setNativeDataType(cassandraType.toString().toLowerCase())
-                    .setIsPartitioningKey(partition)
-                    .setIsPartOfKey(key));
-        }
-    }
-
-    /**
-     * Private helper method for converting data types used by Cassandra into the ones recognized by DataHub,
-     * uses {@code NullType} to indicate an unknown or unsupported data type
-     */
-    @NotNull
-    private static SchemaFieldDataType convertType(@NotNull final DataType.Name cassandraType)
-    {
-        SchemaFieldDataType.Type datahubType = TYPES.get(cassandraType);
-        if (datahubType == null)
-        {
-            datahubType = NULL_TYPE;  // Use the null type as an indicator of an unknown data type
-            LOGGER.warn("Encountered an unknown data type " + cassandraType);
-        }
-
-        return new SchemaFieldDataType()
-                .setType(datahubType);
+            && !name.equals("cie_internal")        // TODO: Move into overriding method in the Apple-internal subclass
+            && !name.startsWith("cie_internal_");  // TODO: Move into overriding method in the Apple-internal subclass
     }
 }

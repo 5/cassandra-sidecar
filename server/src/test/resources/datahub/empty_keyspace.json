@@ -1,3 +1,62 @@
 [
-
+{
+	"aspectName" : "dataPlatformInfo",
+	"entityUrn" : "urn:li:dataPlatform:cassandra",
+	"entityType" : "dataPlatform",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"cassandra\",\"datasetNameDelimiter\":\".\",\"type\":\"RELATIONAL_DB\",\"displayName\":\"Cassandra\"}"
+	}
+},
+{
+	"aspectName" : "dataPlatformInstanceProperties",
+	"entityUrn" : "urn:li:dataPlatform:cassandra",
+	"entityType" : "dataPlatform",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"cluster\",\"customProperties\":{\"cluster\":\"cluster\",\"environment\":\"ENVIRONMENT\",\"application\":\"application\"}}"
+	}
+},
+{
+	"aspectName" : "containerProperties",
+	"entityUrn" : "urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"name\":\"sample_keyspace\"}"
+	}
+},
+{
+	"aspectName" : "subTypes",
+	"entityUrn" : "urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"typeNames\":[\"keyspace\"]}"
+	}
+},
+{
+	"aspectName" : "dataPlatformInstance",
+	"entityUrn" : "urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"platform\":\"urn:li:dataPlatform:cassandra\",\"instance\":\"urn:li:dataPlatformInstance:urn:li:dataPlatform:cassandra:f81d4fae-7dec-11d0-a765-00a0c91e6bf6\"}"
+	}
+},
+{
+	"aspectName" : "browsePathsV2",
+	"entityUrn" : "urn:li:container:f81d4fae-7dec-11d0-a765-00a0c91e6bf6_sample_keyspace",
+	"entityType" : "container",
+	"changeType" : "UPSERT",
+	"aspect" : {
+		"contentType" : "application/json",
+		"value" : "{\"path\":[{\"id\":\"ENVIRONMENT\"},{\"id\":\"application\"},{\"id\":\"cluster\"}]}"
+	}
+}
 ]

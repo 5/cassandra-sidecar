@@ -1,0 +1,54 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.sidecar.datahub;
+
+import com.datastax.driver.core.TableMetadata;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.container.Container;
+import datahub.event.MetadataChangeProposalWrapper;
+import org.jetbrains.annotations.NotNull;
+
+import java.net.URISyntaxException;
+
+/**
+ * Converter class for preparing the Container aspect
+ */
+public class TableToContainerConverter extends TableToAspectConverter<Container>
+{
+    private static final String TABLE = "table";
+
+    public TableToContainerConverter(@NotNull final IdentifiersProvider identifiers)
+    {
+        super(identifiers);
+    }
+
+    @Override
+    @NotNull
+    public MetadataChangeProposalWrapper<Container> convert(@NotNull final TableMetadata table) throws URISyntaxException
+    {
+        final String urn = identifiers.urnDataset(table);
+
+        final String container = identifiers.urnContainer(table.getKeyspace());
+
+        final Container aspect = new Container()
+                .setContainer(new Urn(container));
+
+        return wrap(urn, aspect);
+    }
+}

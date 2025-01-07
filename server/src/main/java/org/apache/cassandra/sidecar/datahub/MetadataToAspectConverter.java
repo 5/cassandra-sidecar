@@ -18,14 +18,32 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
-import com.datastax.driver.core.KeyspaceMetadata;
 import com.linkedin.data.template.RecordTemplate;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
 
-@FunctionalInterface
-public interface KeyspaceConverter
+abstract class MetadataToAspectConverter<T extends RecordTemplate>
 {
+    protected static final String DELIMITER = ".";
+
     @NotNull
-    public abstract MetadataChangeProposalWrapper<? extends RecordTemplate> convert(@NotNull final KeyspaceMetadata keyspace);
+    protected final IdentifiersProvider identifiers;
+
+    protected MetadataToAspectConverter(@NotNull final IdentifiersProvider identifiers)
+    {
+        this.identifiers = identifiers;
+    }
+
+    @SuppressWarnings({"unchecked"})
+    protected MetadataChangeProposalWrapper<T> wrap(@NotNull final String type,
+                                                    @NotNull final String urn,
+                                                    @NotNull final T aspect)
+    {
+        return MetadataChangeProposalWrapper.builder()
+                                            .entityType(type)
+                                            .entityUrn(urn)
+                                            .upsert()
+                                            .aspect(aspect)
+                                            .build();
+    }
 }

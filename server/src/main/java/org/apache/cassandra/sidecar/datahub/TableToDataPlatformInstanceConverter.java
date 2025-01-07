@@ -19,11 +19,33 @@
 package org.apache.cassandra.sidecar.datahub;
 
 import com.datastax.driver.core.TableMetadata;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.urn.Urn;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
 
-public interface TableConverter {
+import java.net.URISyntaxException;
+
+/**
+ * Converter class for preparing the Data Platform Instance aspect
+ */
+public class TableToDataPlatformInstanceConverter extends TableToAspectConverter<DataPlatformInstance>
+{
+    public TableToDataPlatformInstanceConverter(@NotNull final IdentifiersProvider identifiers)
+    {
+        super(identifiers);
+    }
+
+    @Override
     @NotNull
-    public abstract MetadataChangeProposalWrapper<? extends RecordTemplate> convert(@NotNull final TableMetadata table);
+    public MetadataChangeProposalWrapper<DataPlatformInstance> convert(@NotNull final TableMetadata table) throws URISyntaxException
+    {
+        final String urn = identifiers.urnDataset(table);
+
+        final DataPlatformInstance aspect = new DataPlatformInstance()
+                .setPlatform(new Urn(identifiers.urnDataPlatform()))
+                .setInstance(new Urn(identifiers.urnDataPlatformInstance()));
+
+        return wrap(urn, aspect);
+    }
 }

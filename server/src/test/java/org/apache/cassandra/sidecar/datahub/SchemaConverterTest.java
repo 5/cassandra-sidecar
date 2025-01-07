@@ -81,7 +81,7 @@ final class SchemaConverterTest
         when(table.getKeyspace()).thenReturn(keyspace);
         when(table.getName()).thenReturn("sample_table");
         when(table.getOptions()).thenReturn(options);
-        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
+        when(table.exportAsString()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
 
         final String actual = CONVERTER.extractSchema(cluster);
@@ -121,7 +121,7 @@ final class SchemaConverterTest
         when(table.getColumns()).thenReturn(List.of(pk1, pk2, ck1, ck2, c1, c2, c3, c4, c5, c6, c7, c8));
         when(table.getPartitionKey()).thenReturn(List.of(pk1, pk2));
         when(table.getClusteringColumns()).thenReturn(List.of(ck1, ck2));
-        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
+        when(table.exportAsString()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
         when(pk1.getParent()).thenReturn(table);
         when(pk1.getName()).thenReturn("pk1");
@@ -196,7 +196,7 @@ final class SchemaConverterTest
         when(table.getColumns()).thenReturn(List.of(pk, ck, udt1));
         when(table.getPartitionKey()).thenReturn(List.of(pk));
         when(table.getClusteringColumns()).thenReturn(List.of(ck));
-        when(table.asCQLQuery()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
+        when(table.exportAsString()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
         when(pk.getParent()).thenReturn(table);
         when(pk.getName()).thenReturn("pk");

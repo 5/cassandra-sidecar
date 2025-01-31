@@ -18,6 +18,8 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.net.URISyntaxException;
+
 import com.datastax.driver.core.TableMetadata;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
@@ -26,8 +28,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
-
-import java.net.URISyntaxException;
 
 /**
  * Converter class for preparing the Browse Paths v.2 aspect for a given Cassandra table

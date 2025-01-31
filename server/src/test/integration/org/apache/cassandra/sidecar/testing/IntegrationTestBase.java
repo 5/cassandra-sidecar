@@ -35,10 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -76,6 +74,7 @@ import org.apache.cassandra.testing.AbstractCassandraTestContext;
 import org.apache.cassandra.testing.AuthMode;
 import org.apache.cassandra.testing.utils.tls.CertificateBuilder;
 import org.apache.cassandra.testing.utils.tls.CertificateBundle;
+import org.jetbrains.annotations.NotNull;
 
 import static org.apache.cassandra.sidecar.server.SidecarServerEvents.ON_CASSANDRA_CQL_READY;
 import static org.apache.cassandra.sidecar.testing.IntegrationTestModule.ADMIN_IDENTITY;

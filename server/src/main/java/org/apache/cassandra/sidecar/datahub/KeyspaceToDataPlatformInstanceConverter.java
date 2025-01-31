@@ -18,13 +18,13 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.net.URISyntaxException;
+
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
-
-import java.net.URISyntaxException;
 
 /**
  * Converter class for preparing the Data Platform Instance aspect for a given Cassandra keyspace

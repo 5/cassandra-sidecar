@@ -18,6 +18,10 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.util.concurrent.ThreadLocalRandom;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.vertx.core.Promise;
@@ -30,10 +34,6 @@ import org.apache.cassandra.sidecar.coordination.ExecuteOnClusterLeaseholderOnly
 import org.apache.cassandra.sidecar.tasks.PeriodicTask;
 import org.apache.cassandra.sidecar.tasks.ScheduleDecision;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * A {@link PeriodicTask} that uses provided {@link SchemaReportingConfiguration} to report current cluster schema

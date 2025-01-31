@@ -25,6 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Base abstract class for convertors that handle Cassandra clusters (DataHub instances)
+ *
+ * @param <T> type of the aspect produced by this converter
  */
 public abstract class ClusterToAspectConverter<T extends RecordTemplate> extends MetadataToAspectConverter<T>
 {

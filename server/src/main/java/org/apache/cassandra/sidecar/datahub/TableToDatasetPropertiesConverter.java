@@ -18,14 +18,14 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.time.Instant;
+
 import com.datastax.driver.core.TableMetadata;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.DatasetProperties;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
-
-import java.time.Instant;
 
 /**
  * Converter class for preparing the Dataset Properties aspect for a given Cassandra table

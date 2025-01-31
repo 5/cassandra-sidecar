@@ -32,6 +32,8 @@ public final class ThrowableUtils
 {
     /**
      * Version of {@link Supplier} that can throw any checked exception
+     *
+     * @param <T> the type of results supplied by this supplier
      */
     @FunctionalInterface
     public interface Supplier<T>
@@ -41,6 +43,8 @@ public final class ThrowableUtils
 
     /**
      * Version of {@link Consumer} that can throw any checked exception
+     *
+     * @param <T> the type of the input to the operation
      */
     @FunctionalInterface
     public interface Consumer<T>
@@ -50,6 +54,9 @@ public final class ThrowableUtils
 
     /**
      * Version of {@link Function} that can throw any checked exception
+     *
+     * @param <T> the type of the input to the function
+     * @param <R> the type of the result of the function
      */
     @FunctionalInterface
     public interface Function<T, R>

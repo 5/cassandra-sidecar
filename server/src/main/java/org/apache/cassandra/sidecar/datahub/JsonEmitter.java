@@ -19,6 +19,11 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Callback;
@@ -32,14 +37,8 @@ import datahub.shaded.jackson.core.PrettyPrinter;
 import datahub.shaded.jackson.core.util.DefaultIndenter;
 import datahub.shaded.jackson.core.util.DefaultPrettyPrinter;
 import datahub.shaded.jackson.databind.ObjectMapper;
-import datahub.shaded.org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 /**
  * A custom implementation of DataHub {@link Emitter} interface that buffers emitted metadata into
@@ -47,6 +46,9 @@ import java.util.concurrent.Future;
  */
 public class JsonEmitter implements Emitter, AutoCloseable
 {
+    private static final int KB = 1024;
+    private static final int MB = KB * KB;
+
     private static final String OPEN = "[";
     private static final String INDENT = "\t";
     private static final String LINE = "\n";
@@ -67,7 +69,7 @@ public class JsonEmitter implements Emitter, AutoCloseable
         CODEC.setPrettyPrinter(PRINTER);
     }
 
-    private final StringBuilder json = new StringBuilder((int) FileUtils.ONE_MB);
+    private final StringBuilder json = new StringBuilder(MB);
 
     public JsonEmitter()
     {
@@ -101,7 +103,8 @@ public class JsonEmitter implements Emitter, AutoCloseable
     @Override
     @NotNull
     public synchronized Future<MetadataWriteResponse> emit(@NotNull MetadataChangeProposal proposal,
-                                                           @Nullable Callback callback) throws IOException {
+                                                           @Nullable Callback callback) throws IOException
+    {
         if (callback != null)
         {
             throw new IllegalArgumentException(getClass() + " does not support emission with Callback");

@@ -19,15 +19,16 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
-import com.datastax.driver.core.KeyspaceMetadata;
-import com.datastax.driver.core.TableMetadata;
+import java.nio.charset.Charset;
+import java.util.UUID;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+
+import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.TableMetadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.UUID;
 
 /**
  * An abstract class that has to be extended and instantiated for every Cassandra
@@ -105,7 +106,7 @@ public abstract class IdentifiersProvider
     {
         return UUID.nameUUIDFromBytes((environment() + MetadataToAspectConverter.DELIMITER
                                      + application() + MetadataToAspectConverter.DELIMITER
-                                     + cluster()).getBytes());
+                                     + cluster()).getBytes(Charset.defaultCharset()));
     };
 
     /**

@@ -18,6 +18,13 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.util.Map;
+import java.util.stream.Stream;
+import com.google.common.collect.ImmutableMap;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.datastax.driver.core.AbstractTableMetadata;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
@@ -40,14 +47,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
 import datahub.event.MetadataChangeProposalWrapper;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Stream;
 
 /**
  * Converter class for preparing the Schema Metadata aspect for a given Cassandra table
@@ -68,35 +68,32 @@ public class TableToSchemaMetadataConverter extends TableToAspectConverter<Schem
     protected static final SchemaFieldDataType.Type STRING  = SchemaFieldDataType.Type.create(new StringType());
     protected static final SchemaFieldDataType.Type TIME    = SchemaFieldDataType.Type.create(new TimeType());
 
-    protected static final Map<DataType.Name, SchemaFieldDataType.Type> TYPES = new HashMap<>();
-
-    static
-    {
-        TYPES.put(DataType.Name.ASCII,     STRING);
-        TYPES.put(DataType.Name.BIGINT,    NUMBER);
-        TYPES.put(DataType.Name.BLOB,      BYTES);
-        TYPES.put(DataType.Name.BOOLEAN,   BOOLEAN);
-        TYPES.put(DataType.Name.COUNTER,   NUMBER);
-        TYPES.put(DataType.Name.DATE,      DATE);
-        TYPES.put(DataType.Name.DECIMAL,   NUMBER);
-        TYPES.put(DataType.Name.DOUBLE,    NUMBER);
-        TYPES.put(DataType.Name.FLOAT,     NUMBER);
-        TYPES.put(DataType.Name.INET,      STRING);
-        TYPES.put(DataType.Name.INT,       NUMBER);
-        TYPES.put(DataType.Name.LIST,      ARRAY);
-        TYPES.put(DataType.Name.MAP,       MAP);
-        TYPES.put(DataType.Name.SET,       ARRAY);
-        TYPES.put(DataType.Name.SMALLINT,  NUMBER);
-        TYPES.put(DataType.Name.TEXT,      STRING);
-        TYPES.put(DataType.Name.TIME,      TIME);
-        TYPES.put(DataType.Name.TIMESTAMP, DATE);
-        TYPES.put(DataType.Name.TIMEUUID,  STRING);
-        TYPES.put(DataType.Name.TINYINT,   NUMBER);
-        TYPES.put(DataType.Name.TUPLE,     ARRAY);
-        TYPES.put(DataType.Name.UUID,      STRING);
-        TYPES.put(DataType.Name.VARCHAR,   STRING);
-        TYPES.put(DataType.Name.VARINT,    NUMBER);
-    }
+    protected static final Map<DataType.Name, SchemaFieldDataType.Type> TYPES = new ImmutableMap.Builder<DataType.Name, SchemaFieldDataType.Type>()
+            .put(DataType.Name.ASCII,     STRING)
+            .put(DataType.Name.BIGINT,    NUMBER)
+            .put(DataType.Name.BLOB,      BYTES)
+            .put(DataType.Name.BOOLEAN,   BOOLEAN)
+            .put(DataType.Name.COUNTER,   NUMBER)
+            .put(DataType.Name.DATE,      DATE)
+            .put(DataType.Name.DECIMAL,   NUMBER)
+            .put(DataType.Name.DOUBLE,    NUMBER)
+            .put(DataType.Name.FLOAT,     NUMBER)
+            .put(DataType.Name.INET,      STRING)
+            .put(DataType.Name.INT,       NUMBER)
+            .put(DataType.Name.LIST,      ARRAY)
+            .put(DataType.Name.MAP,       MAP)
+            .put(DataType.Name.SET,       ARRAY)
+            .put(DataType.Name.SMALLINT,  NUMBER)
+            .put(DataType.Name.TEXT,      STRING)
+            .put(DataType.Name.TIME,      TIME)
+            .put(DataType.Name.TIMESTAMP, DATE)
+            .put(DataType.Name.TIMEUUID,  STRING)
+            .put(DataType.Name.TINYINT,   NUMBER)
+            .put(DataType.Name.TUPLE,     ARRAY)
+            .put(DataType.Name.UUID,      STRING)
+            .put(DataType.Name.VARCHAR,   STRING)
+            .put(DataType.Name.VARINT,    NUMBER)
+            .build();
 
     public TableToSchemaMetadataConverter(@NotNull IdentifiersProvider identifiers)
     {

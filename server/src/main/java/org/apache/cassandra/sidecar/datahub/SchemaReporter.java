@@ -19,12 +19,15 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.util.List;
+import java.util.stream.Stream;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
+
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.linkedin.data.template.RecordTemplate;
@@ -32,9 +35,6 @@ import datahub.client.Emitter;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.apache.cassandra.sidecar.common.server.utils.ThrowableUtils;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Utility class for converting and reporting the provided Cassandra metadata objects

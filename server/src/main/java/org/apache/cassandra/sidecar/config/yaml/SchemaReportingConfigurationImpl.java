@@ -18,14 +18,14 @@
 
 package org.apache.cassandra.sidecar.config.yaml;
 
+import java.util.concurrent.TimeUnit;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.vertx.core.http.HttpMethod;
 import org.apache.cassandra.sidecar.common.server.utils.MillisecondBoundConfiguration;
 import org.apache.cassandra.sidecar.config.SchemaReportingConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * Configuration for Schema Reporting

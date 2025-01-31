@@ -260,7 +260,8 @@ public class SidecarConfigurationImpl implements SidecarConfiguration
     @Override
     @JsonProperty("schema_reporting")
     @NotNull
-    public SchemaReportingConfiguration schemaReportingConfiguration() {
+    public SchemaReportingConfiguration schemaReportingConfiguration()
+    {
         return schemaReportingConfiguration;
     }
 

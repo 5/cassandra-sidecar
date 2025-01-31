@@ -25,6 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Base abstract class for convertors that handle Cassandra keyspaces (DataHub containers)
+ *
+ * @param <T> type of the aspect produced by this converter
  */
 public abstract class KeyspaceToAspectConverter<T extends RecordTemplate> extends MetadataToAspectConverter<T>
 {

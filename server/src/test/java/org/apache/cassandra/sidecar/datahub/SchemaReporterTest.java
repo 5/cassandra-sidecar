@@ -19,6 +19,11 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.io.IOException;
+import java.util.Collections;
+import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.Test;
+
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
@@ -27,13 +32,7 @@ import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TableOptionsMetadata;
 import com.datastax.driver.core.UserType;
-import com.google.common.collect.ImmutableList;
-import com.sun.tools.javac.util.List;
 import org.apache.cassandra.sidecar.common.server.utils.IOUtils;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -145,9 +144,9 @@ final class SchemaReporterTest
         when(table.getKeyspace()).thenReturn(keyspace);
         when(table.getName()).thenReturn("sample_table");
         when(table.getOptions()).thenReturn(options);
-        when(table.getColumns()).thenReturn(List.of(pk1, pk2, ck1, ck2, c1, c2, c3, c4, c5, c6, c7, c8));
-        when(table.getPartitionKey()).thenReturn(List.of(pk1, pk2));
-        when(table.getClusteringColumns()).thenReturn(List.of(ck1, ck2));
+        when(table.getColumns()).thenReturn(ImmutableList.of(pk1, pk2, ck1, ck2, c1, c2, c3, c4, c5, c6, c7, c8));
+        when(table.getPartitionKey()).thenReturn(ImmutableList.of(pk1, pk2));
+        when(table.getClusteringColumns()).thenReturn(ImmutableList.of(ck1, ck2));
         when(table.exportAsString()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
         when(pk1.getParent()).thenReturn(table);
@@ -224,9 +223,9 @@ final class SchemaReporterTest
         when(table.getKeyspace()).thenReturn(keyspace);
         when(table.getName()).thenReturn("sample_table");
         when(table.getOptions()).thenReturn(options);
-        when(table.getColumns()).thenReturn(List.of(pk, ck, udt1));
-        when(table.getPartitionKey()).thenReturn(List.of(pk));
-        when(table.getClusteringColumns()).thenReturn(List.of(ck));
+        when(table.getColumns()).thenReturn(ImmutableList.of(pk, ck, udt1));
+        when(table.getPartitionKey()).thenReturn(ImmutableList.of(pk));
+        when(table.getClusteringColumns()).thenReturn(ImmutableList.of(ck));
         when(table.exportAsString()).thenReturn("CREATE TABLE sample_keyspace.sample_table (...);");
         when(options.getComment()).thenReturn("table comment");
         when(pk.getParent()).thenReturn(table);
@@ -248,11 +247,11 @@ final class SchemaReporterTest
         when(c2.getName()).thenReturn("c2");
         when(c2.getType()).thenReturn(DataType.cboolean());
         when(udt1t.getName()).thenReturn(DataType.Name.UDT);
-        when(udt1t.getFieldNames()).thenReturn(List.of("c1", "udt2"));
+        when(udt1t.getFieldNames()).thenReturn(ImmutableList.of("c1", "udt2"));
         when(udt1t.getFieldType("c1")).thenReturn(DataType.ascii());
         when(udt1t.getFieldType("udt2")).thenReturn(udt2t);
         when(udt2t.getName()).thenReturn(DataType.Name.UDT);
-        when(udt2t.getFieldNames()).thenReturn(List.of("c2"));
+        when(udt2t.getFieldNames()).thenReturn(ImmutableList.of("c2"));
         when(udt2t.getFieldType("c2")).thenReturn(DataType.cboolean());
         when(udt1c1.getName()).thenReturn("c1");
         when(udt1c1.getType()).thenReturn(DataType.ascii());

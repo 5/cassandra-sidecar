@@ -18,13 +18,13 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.net.URISyntaxException;
+
 import com.datastax.driver.core.TableMetadata;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.jetbrains.annotations.NotNull;
-
-import java.net.URISyntaxException;
 
 /**
  * Converter class for preparing the Container aspect for a given Cassandra table

@@ -134,6 +134,8 @@ public class JsonEmitter implements Emitter, AutoCloseable
      * <p>
      * Should only be called after this {@link Emitter} has been closed,
      * otherwise the result is not going to be a correctly formatted JSON.
+     *
+     * @return the current content of the buffer
      */
     public synchronized String content()
     {

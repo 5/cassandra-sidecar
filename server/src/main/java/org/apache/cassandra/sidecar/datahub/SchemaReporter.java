@@ -40,8 +40,8 @@ import java.util.stream.Stream;
  * Utility class for converting and reporting the provided Cassandra metadata objects
  * in a DataHub-compliant format describing the current schema of the cluster.
  * <p>
- * Note that the extensive usage of {@link Stream<>} types here enables late creation
- * and early destruction of DataHub aspect objects while the schema is being converted
+ * Note that the extensive usage of {@link Stream} types here enables late creation and
+ * early destruction of DataHub aspect objects while the schema is being converted
  * (since all of them can potentially take up to a gigabyte on largest clusters).
  */
 @Singleton
@@ -92,9 +92,9 @@ public class SchemaReporter
      * A protected constructor that can be used to instantiate {@link SchemaReporter} with custom configuration
      *
      * @param identifiersProvider an instance of {@link IdentifiersProvider} to use
-     * @param clusterConverters a {@link List<>} of {@link ClusterToAspectConverter<>} instances to use
-     * @param keyspaceConverters a {@link List<>} of {@link KeyspaceToAspectConverter<>} instances to use
-     * @param tableConverters a {@link List<>} of {@link TableToAspectConverter<>} instances to use
+     * @param clusterConverters a {@link List} of {@link ClusterToAspectConverter} instances to use
+     * @param keyspaceConverters a {@link List} of {@link KeyspaceToAspectConverter} instances to use
+     * @param tableConverters a {@link List} of {@link TableToAspectConverter} instances to use
      * @param emitterFactory an instance of {@link EmitterFactory} to use
      */
     protected SchemaReporter(@NotNull IdentifiersProvider identifiersProvider,
@@ -129,7 +129,11 @@ public class SchemaReporter
     }
 
     /**
-     * Protected method for preparing cluster schema using DataHub client
+     * Protected method that converts Cassandra cluster metadata
+     * into a non-empty {@link Stream} of DataHub aspects
+     *
+     * @param metadata Cassandra cluster metadata
+     * @return non-empty {@link Stream} of DataHub aspects
      */
     @NotNull
     @SuppressWarnings("UnstableApiUsage")
@@ -144,7 +148,11 @@ public class SchemaReporter
     }
 
     /**
-     * Protected method for preparing keyspace schema using DataHub client
+     * Protected method that converts Cassandra keyspace metadata
+     * into a non-empty {@link Stream} of DataHub aspects
+     *
+     * @param keyspace Cassandra keyspace metadata
+     * @return non-empty {@link Stream} of DataHub aspects
      */
     @NotNull
     @SuppressWarnings("UnstableApiUsage")
@@ -158,7 +166,11 @@ public class SchemaReporter
     }
 
     /**
-     * Protected method for preparing table schema using DataHub client
+     * Protected method that converts Cassandra table metadata
+     * into a non-empty {@link Stream} of DataHub aspects
+     *
+     * @param table Cassandra table metadata
+     * @return non-empty {@link Stream} of DataHub aspects
      */
     @NotNull
     protected Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> stream(@NotNull TableMetadata table)
@@ -168,7 +180,12 @@ public class SchemaReporter
     }
 
     /**
-     * Protected method for filtering out virtual keyspaces, Cassandra system keyspaces, and Sidecar system keyspace
+     * Protected method for filtering out virtual keyspaces,
+     * Cassandra system keyspaces, and Sidecar internal keyspaces
+     *
+     * @param keyspace Cassandra keyspace metadata
+     * @return {@code true} if the keyspace is neither virtual nor system,
+     *         {@code false} otherwise
      */
     protected boolean neitherVirtualNorSystem(@NotNull KeyspaceMetadata keyspace)
     {

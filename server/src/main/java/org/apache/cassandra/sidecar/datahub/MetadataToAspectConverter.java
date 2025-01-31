@@ -40,7 +40,7 @@ abstract class MetadataToAspectConverter<T extends RecordTemplate>
     }
 
     /**
-     * A helper method that implementing classes should use in order to create a new instance of {@link MetadataChangeProposalWrapper<>};
+     * A helper method that implementing classes should use in order to create a new instance of {@link MetadataChangeProposalWrapper};
      * the instance will have its {@code type}, {@code urn}, and {@code aspect} fields initialized with the provided values
      *
      * @param type the type to initialize the wrapper with

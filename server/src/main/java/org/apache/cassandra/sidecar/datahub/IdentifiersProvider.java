@@ -44,7 +44,9 @@ public abstract class IdentifiersProvider
     protected static final String PROD = "PROD";  // DataHub requires this to be {@code PROD} regardless
 
     /**
-     * A public getter method that returns the name of a Cassandra Organization
+     * A public getter method that returns the name of Cassandra Organization
+     *
+     * @return name of Cassandra organization
      */
     @NotNull
     public String organization()
@@ -53,7 +55,9 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public getter method that returns the name of a Cassandra Platform
+     * A public getter method that returns the name of Cassandra Platform
+     *
+     * @return name of Cassandra platform
      */
     @NotNull
     public String platform()
@@ -62,7 +66,9 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public getter method that returns the name of a Cassandra Environment
+     * A public getter method that returns the name of Cassandra Environment
+     *
+     * @return name of Cassandra environment
      */
     @NotNull
     public String environment()
@@ -71,7 +77,9 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public getter method that returns the name of a Cassandra Application
+     * A public getter method that returns the name of Cassandra Application
+     *
+     * @return name of Cassandra application
      */
     @NotNull
     public String application()
@@ -80,13 +88,17 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public getter method that returns the name of a Cassandra Cluster
+     * A public getter method that returns the name of Cassandra Cluster
+     *
+     * @return name of Cassandra cluster
      */
     @NotNull
     public abstract String cluster();
 
     /**
-     * A public getter method that returns the identifier of a Cassandra Cluster
+     * A public getter method that returns the identifier of Cassandra Cluster
+     *
+     * @return identifier of Cassandra cluster
      */
     @NotNull
     public UUID identifier()
@@ -97,7 +109,9 @@ public abstract class IdentifiersProvider
     };
 
     /**
-     * A public helper method that prepares the URN of a Data Platform
+     * A public helper method that prepares the URN of Data Platform
+     *
+     * @return URN of data platform
      */
     @NotNull
     public String urnDataPlatform()
@@ -110,7 +124,9 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public helper method that prepares the URN of a Data Platform Instance
+     * A public helper method that prepares the URN of Data Platform Instance
+     *
+     * @return URN of data platform instance
      */
     @NotNull
     public String urnDataPlatformInstance()
@@ -124,7 +140,10 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public helper method that prepares the URN of a Container
+     * A public helper method that prepares the URN of Container
+     *
+     * @param keyspace metadata of keyspace
+     * @return URN of container
      */
     @NotNull
     public String urnContainer(@NotNull KeyspaceMetadata keyspace)
@@ -138,7 +157,10 @@ public abstract class IdentifiersProvider
     }
 
     /**
-     * A public helper method that prepares the URN of a Dataset
+     * A public helper method that prepares the URN of Dataset
+     *
+     * @param table metadata of table
+     * @return URN of dataset
      */
     @NotNull
     public String urnDataset(@NotNull TableMetadata table)
@@ -156,6 +178,8 @@ public abstract class IdentifiersProvider
 
     /**
      * A public method that returns an {@link int} hash code of this object
+     *
+     * @return hash code of this object
      */
     @Override
     public int hashCode()
@@ -172,6 +196,9 @@ public abstract class IdentifiersProvider
 
     /**
      * A public method that compares this {@link IdentifiersProvider} object to another one
+     *
+     * @param other another object for comparison
+     * @return whether this object is equal to another object
      */
     @Override
     public boolean equals(@Nullable Object other)
@@ -196,7 +223,9 @@ public abstract class IdentifiersProvider
 
     /**
      * A public method that returns a {@link String} representation of this object
-     */
+     *
+     * @return a {@link String} representation of this object
+     **/
     @Override
     @NotNull
     public String toString()

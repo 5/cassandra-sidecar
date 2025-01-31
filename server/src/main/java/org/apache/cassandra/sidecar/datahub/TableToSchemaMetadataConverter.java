@@ -133,7 +133,11 @@ public class TableToSchemaMetadataConverter extends TableToAspectConverter<Schem
     }
 
     /**
-     * Protected method for converting single Cassandra column metadata into a collection of at least one DataHub schema field definition
+     * Protected method for converting metadata of a single Cassandra column
+     * into a non-empty {@link Stream} of DataHub schema field definitions
+     *
+     * @param column metadata of a single Cassandra column
+     * @return non-empty {@link Stream} of DataHub schema field definitions
      */
     @NotNull
     protected Stream<SchemaField> convertColumn(@NotNull ColumnMetadata column)
@@ -147,7 +151,14 @@ public class TableToSchemaMetadataConverter extends TableToAspectConverter<Schem
     }
 
     /**
-     * Protected method for converting Cassandra's single data type into a non-empty collection of DataHub's field definitions
+     * Protected method for converting a single Cassandra data type
+     * into a non-empty {@link Stream} of DataHub schema field definitions
+     *
+     * @param name name of the field
+     * @param type type of the field
+     * @param partition whether the field is a part of partition key
+     * @param key whether the field is a part of any key
+     * @return non-empty {@link Stream} of DataHub schema field definitions
      */
     @NotNull
     protected Stream<SchemaField> convertType(@NotNull String name,
@@ -184,6 +195,9 @@ public class TableToSchemaMetadataConverter extends TableToAspectConverter<Schem
     /**
      * Protected method for converting data types used by Cassandra into the ones recognized by DataHub,
      * uses {@code NullType} to indicate an unknown or unsupported data type
+     *
+     * @param cassandraType Cassandra data type
+     * @return DataHub data type, or {@code NullType} if unknown/unsupported
      */
     @NotNull
     protected SchemaFieldDataType convertType(@NotNull DataType.Name cassandraType)

@@ -34,7 +34,7 @@ public abstract class TableToAspectConverter<T extends RecordTemplate> extends M
     }
 
     /**
-     * A helper method used in order to create a new instance of {@link MetadataChangeProposalWrapper<>} for a table;
+     * A helper method used in order to create a new instance of {@link MetadataChangeProposalWrapper} for a table;
      * the instance will have its {@code urn} and {@code aspect} fields initialized with the provided values
      *
      * @param urn the URN to initialize the wrapper with

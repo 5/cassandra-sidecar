@@ -94,14 +94,8 @@ public class SchemaReportingTask implements PeriodicTask, ExecuteOnClusterLeaseh
         }
         catch (Throwable throwable)
         {
-            LOGGER.error("Failed to convert and report the current schema");
+            LOGGER.error("Failed to convert and report the current schema", throwable);
             promise.fail(throwable);
         }
-    }
-
-    @Override
-    public Void result()
-    {
-        return null;  // No result can be returned from a {@link PeriodicTask}
     }
 }

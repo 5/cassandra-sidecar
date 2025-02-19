@@ -41,6 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import com.datastax.driver.core.utils.UUIDs;
 import io.vertx.core.Vertx;
+import org.apache.cassandra.sidecar.TestResourceReaper;
 import org.apache.cassandra.sidecar.common.data.RestoreJobSecrets;
 import org.apache.cassandra.sidecar.common.data.RestoreJobStatus;
 import org.apache.cassandra.sidecar.common.data.SSTableImportOptions;
@@ -89,6 +90,8 @@ class StorageClientTest
     private static RestoreRange testRange;
     private static RestoreRange largeTestRange;
     private static Path largeFilePath;
+    private static Vertx vertx;
+    private static ExecutorPools executorPools;
     private static TaskExecutorPool taskExecutorPool;
 
     @TempDir
@@ -126,7 +129,20 @@ class StorageClientTest
                                       LARGE_FILE_IN_BYTES);
         putObject(largeTestRange, largeFilePath);
 
-        taskExecutorPool = new ExecutorPools(Vertx.vertx(), new ServiceConfigurationImpl()).internal();
+        vertx = Vertx.vertx();
+        executorPools = new ExecutorPools(vertx, new ServiceConfigurationImpl());
+        taskExecutorPool = executorPools.internal();
+    }
+
+    @AfterAll
+    static void cleanup()
+    {
+        TestResourceReaper.create()
+                          .with(executorPools)
+                          .with(vertx)
+                          .with(() -> s3Mock.stop(),
+                                () -> client.close())
+                          .close();
     }
 
     static S3AsyncClient buildS3AsyncClient(Duration apiCallTimeout) throws Exception
@@ -147,13 +163,6 @@ class StorageClientTest
                                         .put(TRUST_ALL_CERTIFICATES, Boolean.TRUE)
                                         .build()))
                             .build();
-    }
-
-    @AfterAll
-    static void cleanup()
-    {
-        s3Mock.stop();
-        client.close();
     }
 
     @Test

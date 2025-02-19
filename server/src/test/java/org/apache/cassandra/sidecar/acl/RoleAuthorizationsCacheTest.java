@@ -24,12 +24,14 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.authorization.Authorization;
+import org.apache.cassandra.sidecar.TestResourceReaper;
 import org.apache.cassandra.sidecar.acl.authorization.BasicPermissions;
 import org.apache.cassandra.sidecar.acl.authorization.CassandraPermissions;
 import org.apache.cassandra.sidecar.acl.authorization.RoleAuthorizationsCache;
@@ -66,6 +68,12 @@ class RoleAuthorizationsCacheTest
         mockSidecarSchema = mock(SidecarSchema.class);
         when(mockSidecarSchema.isInitialized()).thenReturn(true);
         executorPools = createdSharedTestPool(vertx);
+    }
+
+    @AfterEach
+    void cleanup()
+    {
+        TestResourceReaper.create().with(vertx).with(executorPools).close();
     }
 
     @Test

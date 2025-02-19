@@ -21,12 +21,14 @@ package org.apache.cassandra.sidecar.job;
 import java.util.UUID;
 
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import com.datastax.driver.core.utils.UUIDs;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.apache.cassandra.sidecar.TestResourceReaper;
 import org.apache.cassandra.sidecar.common.data.OperationalJobStatus;
 import org.apache.cassandra.sidecar.common.server.exceptions.OperationalJobException;
 import org.apache.cassandra.sidecar.common.server.utils.DurationSpec;
@@ -44,7 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class OperationalJobTest
 {
-    private final TaskExecutorPool executorPool = new ExecutorPools(Vertx.vertx(), new ServiceConfigurationImpl()).internal();
+    private final Vertx vertx = Vertx.vertx();
+    private final ExecutorPools executorPools = new ExecutorPools(Vertx.vertx(), new ServiceConfigurationImpl());
+    private final TaskExecutorPool executorPool = executorPools.internal();
 
     public static OperationalJob createOperationalJob(OperationalJobStatus jobStatus)
     {
@@ -115,6 +119,12 @@ class OperationalJobTest
                 return "Operation X";
             }
         };
+    }
+
+    @AfterEach
+    void cleanup()
+    {
+        TestResourceReaper.create().with(vertx).with(executorPools).close();
     }
 
     @Test

@@ -23,11 +23,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import org.apache.cassandra.sidecar.TestResourceReaper;
 import org.apache.cassandra.sidecar.common.server.utils.MillisecondBoundConfiguration;
 import org.apache.cassandra.sidecar.concurrent.ExecutorPools;
 import org.apache.cassandra.sidecar.config.AccessControlConfiguration;
@@ -55,6 +57,12 @@ class SuperUserCacheTest
     {
         vertx = Vertx.vertx();
         executorPools = createdSharedTestPool(vertx);
+    }
+
+    @AfterEach
+    void cleanup()
+    {
+        TestResourceReaper.create().with(vertx).with(executorPools).close();
     }
 
     @Test

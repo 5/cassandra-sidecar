@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,7 @@ import com.google.inject.util.Modules;
 import io.vertx.core.Vertx;
 import org.apache.cassandra.sidecar.ExecutorPoolsHelper;
 import org.apache.cassandra.sidecar.TestModule;
+import org.apache.cassandra.sidecar.TestResourceReaper;
 import org.apache.cassandra.sidecar.cluster.InstancesMetadata;
 import org.apache.cassandra.sidecar.common.server.utils.SecondBoundConfiguration;
 import org.apache.cassandra.sidecar.common.utils.Preconditions;
@@ -50,7 +52,9 @@ class CdcLogCacheTest
 {
     private final Injector injector = Guice.createInjector(Modules.override(new MainModule()).with(new TestModule()));
     private final InstancesMetadata instancesMetadata = injector.getInstance(InstancesMetadata.class);
-    private final CdcLogCache logCache = cdcLogCache();
+    private final Vertx vertx = injector.getInstance(Vertx.class);
+    private final ExecutorPools executorPools = injector.getInstance(ExecutorPools.class);
+    private final CdcLogCache logCache = cdcLogCache(executorPools);
 
     @BeforeEach
     void beforeEach()
@@ -58,6 +62,12 @@ class CdcLogCacheTest
         logCache.initMaybe();
         logCache.hardlinkCache.invalidateAll();
         assertThat(logCache.hardlinkCache.size()).isZero();
+    }
+
+    @AfterEach
+    void teardown()
+    {
+        TestResourceReaper.create().with(vertx).with(executorPools).close();
     }
 
     @Test
@@ -115,9 +125,8 @@ class CdcLogCacheTest
         return new File(commitLogPathOnInstance1);
     }
 
-    private CdcLogCache cdcLogCache()
+    private CdcLogCache cdcLogCache(ExecutorPools executorPools)
     {
-        ExecutorPools executorPools = ExecutorPoolsHelper.createdSharedTestPool(Vertx.vertx());
         // Mock the class because even though the resolution is seconds, for testing purposes
         // we hack into the class and allow configuring the cache expiration with milliseconds.
         SecondBoundConfiguration mockCacheExpiryConfig = mock(SecondBoundConfiguration.class);

@@ -94,7 +94,7 @@ public class ReportSchemaHandler extends AbstractHandler<Void> implements Access
     {
         executorPools.service()
                      .runBlocking(() -> metadataFetcher.runOnFirstAvailableInstance(instance ->
-                            schemaReporter.process(instance.delegate().metadata())))
+                            schemaReporter.processRequested(instance.delegate().metadata())))
                      .onSuccess(context::json)
                      .onFailure(throwable -> processFailure(throwable, context, host, address, request));
     }

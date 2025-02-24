@@ -22,8 +22,11 @@ package org.apache.cassandra.sidecar.datahub;
 import java.io.IOException;
 import java.util.Collections;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.codahale.metrics.SharedMetricRegistries;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
@@ -33,70 +36,101 @@ import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TableOptionsMetadata;
 import com.datastax.driver.core.UserType;
 import org.apache.cassandra.sidecar.common.server.utils.IOUtils;
+import org.apache.cassandra.sidecar.metrics.MetricRegistryFactory;
+import org.apache.cassandra.sidecar.metrics.SidecarMetrics;
+import org.apache.cassandra.sidecar.metrics.SidecarMetricsImpl;
+import org.apache.cassandra.sidecar.metrics.server.SchemaReportingMetrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link SchemaReporter}
  */
-@SuppressWarnings("try")
+@SuppressWarnings("resource")
 final class SchemaReporterTest
 {
     private static final IdentifiersProvider IDENTIFIERS = new TestIdentifiers();
+    private static final MetricRegistryFactory FACTORY = new MetricRegistryFactory(SchemaReporterTest.class.getSimpleName(),
+                                                                                   Collections.emptyList(),
+                                                                                   Collections.emptyList());
+
+    private SidecarMetrics metrics;
+
+    @BeforeEach
+    void beforeEach()
+    {
+        metrics = new SidecarMetricsImpl(FACTORY, null);
+    }
+
+    @AfterEach
+    void afterEach()
+    {
+        SharedMetricRegistries.clear();
+    }
 
     @Test
     void testEmptyCluster() throws IOException
     {
-        Cluster cluster = mock(Cluster.class);
-        Metadata metadata = mock (Metadata.class);
-        when(cluster.getClusterName()).thenReturn("sample_cluster");
-        when(cluster.getMetadata()).thenReturn(metadata);
+        Metadata metadata = mock(Metadata.class);
         when(metadata.getKeyspaces()).thenReturn(Collections.emptyList());
 
         JsonEmitter emitter = new JsonEmitter();
-        new SchemaReporter(IDENTIFIERS, () -> emitter)
-                .process(cluster);
+        new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                .processRequested(metadata);
 
         String actual = emitter.content();
         String expected = IOUtils.readFully("/datahub/empty_cluster.json");
-
         assertEquals(expected, actual);
+
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();            // Validate captured metrics:
+        assertEquals(1L, metrics.startedRequest.metric.getValue());                          //  * one execution triggered by request
+        assertEquals(0L, metrics.startedSchedule.metric.getValue());                         //  * zero executions triggered by schedule
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());                         //  * one execution resulted in success
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());                         //  * zero executions resulted in failure
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());                             //  * single number of aspects,
+        assertEquals(2L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);           //    equal to two
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());                    //  * single duration of execution,
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);  //    that is non-negative
     }
 
     @Test
     void testEmptyKeyspace() throws IOException
     {
-        Cluster cluster = mock(Cluster.class);
-        Metadata metadata = mock (Metadata.class);
+        Metadata metadata = mock(Metadata.class);
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
-        when(cluster.getClusterName()).thenReturn("sample_cluster");
-        when(cluster.getMetadata()).thenReturn(metadata);
         when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(Collections.emptyList());
 
         JsonEmitter emitter = new JsonEmitter();
-        new SchemaReporter(IDENTIFIERS, () -> emitter)
-                .process(cluster);
+        new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                .processRequested(metadata);
 
         String actual = emitter.content();
         String expected = IOUtils.readFully("/datahub/empty_keyspace.json");
-
         assertEquals(expected, actual);
+
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();            // Validate captured metrics:
+        assertEquals(1L, metrics.startedRequest.metric.getValue());                          //  * one execution triggered by request
+        assertEquals(0L, metrics.startedSchedule.metric.getValue());                         //  * zero executions triggered by schedule
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());                         //  * one execution resulted in success
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());                         //  * zero executions resulted in failure
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());                             //  * single number of aspects,
+        assertEquals(6L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);           //    equal to six
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());                    //  * single duration of execution,
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);  //    that is non-negative
     }
 
     @Test
     void testEmptyTable() throws IOException
     {
-        Cluster cluster = mock(Cluster.class);
-        Metadata metadata = mock (Metadata.class);
+        Metadata metadata = mock(Metadata.class);
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         TableMetadata table = mock(TableMetadata.class);
         TableOptionsMetadata options = mock(TableOptionsMetadata.class);
-        when(cluster.getClusterName()).thenReturn("sample_cluster");
-        when(cluster.getMetadata()).thenReturn(metadata);
         when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
         when(keyspace.getTables()).thenReturn(Collections.singletonList(table));
@@ -107,20 +141,29 @@ final class SchemaReporterTest
         when(options.getComment()).thenReturn("table comment");
 
         JsonEmitter emitter = new JsonEmitter();
-        new SchemaReporter(IDENTIFIERS, () -> emitter)
-                .process(cluster);
+        new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                .processRequested(metadata);
 
         String actual = emitter.content();
         String expected = IOUtils.readFully("/datahub/empty_table.json");
-
         assertEquals(expected, actual);
+
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();            // Validate captured metrics:
+        assertEquals(1L, metrics.startedRequest.metric.getValue());                          //  * one execution triggered by request
+        assertEquals(0L, metrics.startedSchedule.metric.getValue());                         //  * zero executions triggered by schedule
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());                         //  * one execution resulted in success
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());                         //  * zero executions resulted in failure
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());                             //  * single number of aspects,
+        assertEquals(13L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);          //    equal to thirteen
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());                    //  * single duration of execution,
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);  //    that is non-negative
     }
 
     @Test
     void testPrimitiveTypes() throws IOException
     {
         Cluster cluster = mock(Cluster.class);
-        Metadata metadata = mock (Metadata.class);
+        Metadata metadata = mock(Metadata.class);
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         TableMetadata table = mock(TableMetadata.class);
         TableOptionsMetadata options = mock(TableOptionsMetadata.class);
@@ -136,7 +179,6 @@ final class SchemaReporterTest
         ColumnMetadata c6 = mock(ColumnMetadata.class);
         ColumnMetadata c7 = mock(ColumnMetadata.class);
         ColumnMetadata c8 = mock(ColumnMetadata.class);
-        when(cluster.getClusterName()).thenReturn("sample_cluster");
         when(cluster.getMetadata()).thenReturn(metadata);
         when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
@@ -187,20 +229,29 @@ final class SchemaReporterTest
         when(c8.getType()).thenReturn(DataType.map(DataType.timestamp(), DataType.inet(), false));
 
         JsonEmitter emitter = new JsonEmitter();
-        new SchemaReporter(IDENTIFIERS, () -> emitter)
-                .process(cluster);
+        new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                .processScheduled(cluster);
 
         String actual = emitter.content();
         String expected = IOUtils.readFully("/datahub/primitive_types.json");
-
         assertEquals(expected, actual);
+
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();            // Validate captured metrics:
+        assertEquals(0L, metrics.startedRequest.metric.getValue());                          //  * zero executions triggered by request
+        assertEquals(1L, metrics.startedSchedule.metric.getValue());                         //  * one execution triggered by schedule
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());                         //  * one execution resulted in success
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());                         //  * zero executions resulted in failure
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());                             //  * single number of aspects,
+        assertEquals(13L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);          //    equal to thirteen
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());                    //  * single duration of execution,
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);  //    that is non-negative
     }
 
     @Test
     void testUserTypes() throws IOException
     {
         Cluster cluster = mock(Cluster.class);
-        Metadata metadata = mock (Metadata.class);
+        Metadata metadata = mock(Metadata.class);
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
         TableMetadata table = mock(TableMetadata.class);
         TableOptionsMetadata options = mock(TableOptionsMetadata.class);
@@ -215,7 +266,6 @@ final class SchemaReporterTest
         UserType.Field udt1c1 = mock(UserType.Field.class);
         UserType.Field udt1udt2 = mock(UserType.Field.class);
         UserType.Field udt2c2 = mock(UserType.Field.class);
-        when(cluster.getClusterName()).thenReturn("sample_cluster");
         when(cluster.getMetadata()).thenReturn(metadata);
         when(metadata.getKeyspaces()).thenReturn(Collections.singletonList(keyspace));
         when(keyspace.getName()).thenReturn("sample_keyspace");
@@ -261,12 +311,21 @@ final class SchemaReporterTest
         when(udt2c2.getType()).thenReturn(DataType.cboolean());
 
         JsonEmitter emitter = new JsonEmitter();
-        new SchemaReporter(IDENTIFIERS, () -> emitter)
-                .process(cluster);
+        new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                .processScheduled(cluster);
 
         String actual = emitter.content();
         String expected = IOUtils.readFully("/datahub/user_types.json");
-
         assertEquals(expected, actual);
+
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();            // Validate captured metrics:
+        assertEquals(0L, metrics.startedRequest.metric.getValue());                          //  * zero executions triggered by request
+        assertEquals(1L, metrics.startedSchedule.metric.getValue());                         //  * one execution triggered by schedule
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());                         //  * one execution resulted in success
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());                         //  * zero executions resulted in failure
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());                             //  * single number of aspects,
+        assertEquals(13L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);          //    equal to thirteen
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());                    //  * single duration of execution,
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);  //    that is non-negative
     }
 }

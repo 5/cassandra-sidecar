@@ -232,12 +232,12 @@ public abstract class IdentifiersProvider
     public String toString()
     {
         return new ToStringBuilder(this)
-                .append(this.organization())
-                .append(this.platform())
-                .append(this.environment())
-                .append(this.application())
-                .append(this.cluster())
-                .append(this.identifier())
+                .append("organization", this.organization())
+                .append("platform",     this.platform())
+                .append("environment",  this.environment())
+                .append("application",  this.application())
+                .append("cluster",      this.cluster())
+                .append("identifier",   this.identifier())
                 .toString();
     }
 }

@@ -21,26 +21,53 @@ package org.apache.cassandra.sidecar.datahub;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
+import com.codahale.metrics.SharedMetricRegistries;
 import com.datastax.driver.core.Session;
 import com.linkedin.data.DataList;
 import com.linkedin.data.codec.JacksonDataCodec;
 import org.apache.cassandra.sidecar.common.server.utils.IOUtils;
+import org.apache.cassandra.sidecar.metrics.MetricRegistryFactory;
+import org.apache.cassandra.sidecar.metrics.SidecarMetrics;
+import org.apache.cassandra.sidecar.metrics.SidecarMetricsImpl;
+import org.apache.cassandra.sidecar.metrics.server.SchemaReportingMetrics;
 import org.apache.cassandra.sidecar.testing.IntegrationTestBase;
 import org.apache.cassandra.testing.CassandraIntegrationTest;
 import org.jetbrains.annotations.NotNull;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test for {@link SchemaReporter}
  */
-@SuppressWarnings({"try", "unused"})
+@SuppressWarnings("resource")
 final class SchemaReporterIntegrationTest extends IntegrationTestBase
 {
     private static final IdentifiersProvider IDENTIFIERS = new TestIdentifiers();
     private static final JacksonDataCodec CODEC = new JacksonDataCodec();
+    private static final MetricRegistryFactory FACTORY = new MetricRegistryFactory(SchemaReporterTest.class.getSimpleName(),
+                                                                                   Collections.emptyList(),
+                                                                                   Collections.emptyList());
+
+    private SidecarMetrics metrics;
+
+    @BeforeEach
+    void beforeEach()
+    {
+        metrics = new SidecarMetricsImpl(FACTORY, null);
+    }
+
+    @AfterEach
+    void afterEach()
+    {
+        SharedMetricRegistries.clear();
+    }
 
     /**
      * Private helper method that removes all numeric suffixes added non-deterministically
@@ -97,21 +124,31 @@ final class SchemaReporterIntegrationTest extends IntegrationTestBase
         JsonEmitter emitter = new JsonEmitter();
         try (Session session = maybeGetSession())
         {
-            new SchemaReporter(IDENTIFIERS, () -> emitter)
-                    .process(session.getCluster());
+            new SchemaReporter(IDENTIFIERS, () -> emitter, metrics)
+                    .processScheduled(session.getCluster());
         }
         String   actualJson = normalizeNames(emitter.content());
         String expectedJson = IOUtils.readFully("/datahub/integration_test.json");
-
         assertThat(actualJson)
                 .isEqualToNormalizingWhitespace(expectedJson);
 
-        // Finally, make sure the returned schema produces the same tree of
+        // Second, make sure the returned schema produces the same tree of
         // DataHub objects after having been normalized and deserialized
         DataList   actualData = CODEC.readList(new StringReader(actualJson));
         DataList expectedData = CODEC.readList(new StringReader(expectedJson));
-
         assertThat(actualData)
                 .isEqualTo(expectedData);
+
+        // Third, validate the captured metrics: one execution triggered by the schedule and
+        // completed successfully, with thirteen aspects produced in zero or more milliseconds
+        SchemaReportingMetrics metrics = this.metrics.server().schemaReporting();
+        assertEquals(0L, metrics.startedRequest.metric.getValue());
+        assertEquals(1L, metrics.startedSchedule.metric.getValue());
+        assertEquals(1L, metrics.finishedSuccess.metric.getValue());
+        assertEquals(0L, metrics.finishedFailure.metric.getValue());
+        assertEquals(1L, metrics.sizeAspects.metric.getCount());
+        assertEquals(13L, metrics.sizeAspects.metric.getSnapshot().getValues()[0]);
+        assertEquals(1L, metrics.durationMilliseconds.metric.getCount());
+        assertTrue(0L <= metrics.durationMilliseconds.metric.getSnapshot().getValues()[0]);
     }
 }

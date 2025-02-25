@@ -81,6 +81,7 @@ import org.apache.cassandra.sidecar.common.response.RingResponse;
 import org.apache.cassandra.sidecar.common.response.SSTableImportResponse;
 import org.apache.cassandra.sidecar.common.response.SchemaResponse;
 import org.apache.cassandra.sidecar.common.response.StreamStatsResponse;
+import org.apache.cassandra.sidecar.common.response.TableStatsResponse;
 import org.apache.cassandra.sidecar.common.response.TimeSkewResponse;
 import org.apache.cassandra.sidecar.common.response.TokenRangeReplicasResponse;
 import org.apache.cassandra.sidecar.common.response.data.CdcSegmentInfo;
@@ -1328,7 +1329,7 @@ abstract class SidecarClientTest
             assertThat(result.operation()).isEqualTo("test");
             validateResponseServed(server,
                                    ApiEndpointsV1.OPERATIONAL_JOB_ROUTE.replaceAll(OPERATIONAL_JOB_ID_PATH_PARAM, jobId.toString()),
-                                   req -> { });
+                                   req -> {});
         }
     }
 
@@ -1352,7 +1353,7 @@ abstract class SidecarClientTest
             assertThat(result).isNotNull();
             assertThat(result.jobs()).isNotNull();
             assertThat(result.jobs().get(0).jobId()).isEqualTo(jobId);
-            validateResponseServed(server, ApiEndpointsV1.LIST_OPERATIONAL_JOBS_ROUTE, req -> { });
+            validateResponseServed(server, ApiEndpointsV1.LIST_OPERATIONAL_JOBS_ROUTE, req -> {});
         }
     }
 
@@ -1550,9 +1551,44 @@ abstract class SidecarClientTest
             assertThat(entry.authenticationMode()).isEqualTo("MutualTls");
             assertThat(entry.authenticationMetadata()).containsKey("identity");
             assertThat(entry.clientOptions()).containsKeys("CQL_VERSION", "DRIVER_NAME", "DRIVER_VERSION");
-            validateResponseServed(server, ApiEndpointsV1.CONNECTED_CLIENT_STATS_ROUTE, req -> { });
+            validateResponseServed(server, ApiEndpointsV1.CONNECTED_CLIENT_STATS_ROUTE, req -> {});
         }
     }
+
+    @Test
+    public void testTableStats() throws Exception
+    {
+        String testKeyspace = "testKeyspace";
+        String testTable = "testTable";
+        int expectedSstables = 10;
+        long expectedSize = 1024;
+        long expectedTotalSize = 2048;
+        long expectedSnapshotSize = 100;
+
+        TableStatsResponse tableStatsResponse = new TableStatsResponse(testKeyspace, testTable, expectedSstables, expectedSize, expectedTotalSize, expectedSnapshotSize);
+        ObjectMapper mapper = new ObjectMapper();
+        MockResponse response = new MockResponse().setResponseCode(OK.code())
+                                                  .setBody(mapper.writeValueAsString(tableStatsResponse));
+        enqueue(response);
+
+        for (MockWebServer server : servers)
+        {
+            SidecarInstanceImpl sidecarInstance = RequestExecutorTest.newSidecarInstance(server);
+            TableStatsResponse result = client.tableStats(sidecarInstance, testKeyspace, testTable).get();
+
+            assertThat(result).isNotNull();
+            assertThat(result.sstableCount()).isEqualTo(expectedSstables);
+            assertThat(result.diskSpaceUsedBytes()).isEqualTo(expectedSize);
+            assertThat(result.totalDiskSpaceUsedBytes()).isEqualTo(expectedTotalSize);
+            assertThat(result.snapshotsSizeBytes()).isEqualTo(expectedSnapshotSize);
+            validateResponseServed(server,
+                                   ApiEndpointsV1.TABLE_STATS_ROUTE
+                                   .replaceAll(KEYSPACE_PATH_PARAM, testKeyspace)
+                                   .replaceAll(TABLE_PATH_PARAM, testTable),
+                                   req -> {});
+        }
+    }
+
 
     @Test
     public void testListCdcSegments() throws ExecutionException, InterruptedException, JsonProcessingException
@@ -1640,7 +1676,7 @@ abstract class SidecarClientTest
             SidecarInstanceImpl sidecarInstance = RequestExecutorTest.newSidecarInstance(server);
             StreamStatsResponse result = client.streamsStats(sidecarInstance).get(30, TimeUnit.SECONDS);
             assertThat(mapper.writeValueAsString(result)).isEqualTo(expectedResponse);
-            validateResponseServed(server, ApiEndpointsV1.STREAM_STATS_ROUTE, req -> { });
+            validateResponseServed(server, ApiEndpointsV1.STREAM_STATS_ROUTE, req -> {});
         }
     }
 

@@ -16,18 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.sidecar.adapters.base;
+package org.apache.cassandra.sidecar.adapters.base.jmx;
 
 /**
- * An interface that pulls a method from Cassandra Gossiper and Failure Detector proxies
+ * An interface that pulls methods from the Cassandra Metrics Proxy
  */
-public interface ClusterMembershipJmxOperations
+public interface MetricsJmxOperations
 {
-    String FAILURE_DETECTOR_OBJ_NAME = "org.apache.cassandra.net:type=FailureDetector";
+    String METRICS_OBJ_TYPE_KEYSPACE_TABLE_FORMAT = "org.apache.cassandra.metrics:type=Table,keyspace=%s,scope=%s,name=%s";
 
     /**
-     * Retrieves gossip info with ports included for the nodes
-     * @return gossip info text
+     * Retrieves the value of the metric of type {@link com.codahale.metrics.Gauge}
+     * @return the value of the Gauge metric
      */
-    String getAllEndpointStatesWithPort();
+    Object getValue();
+
+    /**
+     * Retrieves the value of the metric of type {@link com.codahale.metrics.Counter}
+     * @return the value of the Counter metric
+     */
+    long getCount();
 }

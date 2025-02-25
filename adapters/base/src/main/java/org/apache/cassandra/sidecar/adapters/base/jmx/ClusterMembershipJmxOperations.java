@@ -16,22 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.sidecar.adapters.base;
-
-import java.util.Set;
-import javax.management.openmbean.CompositeData;
+package org.apache.cassandra.sidecar.adapters.base.jmx;
 
 /**
- * An interface that pulls methods from the Cassandra Stream manager Proxy
+ * An interface that pulls a method from Cassandra Gossiper and Failure Detector proxies
  */
-public interface StreamManagerJmxOperations
+public interface ClusterMembershipJmxOperations
 {
-
-    String STREAM_MANAGER_OBJ_NAME = "org.apache.cassandra.net:type=StreamManager";
+    String FAILURE_DETECTOR_OBJ_NAME = "org.apache.cassandra.net:type=FailureDetector";
 
     /**
-     * Returns the current snapshot of the progress of all ongoing streams.
-     * @return the current state of streams as a set of JMX {@link CompositeData} instances.
+     * Retrieves gossip info with ports included for the nodes
+     * @return gossip info text
      */
-    Set<CompositeData> getCurrentStreams();
+    String getAllEndpointStatesWithPort();
 }

@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.sidecar.datahub;
 
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ import org.apache.cassandra.sidecar.config.SchemaReportingConfiguration;
 import org.apache.cassandra.sidecar.config.SidecarConfiguration;
 import org.apache.cassandra.sidecar.coordination.ExecuteOnClusterLeaseholderOnly;
 import org.apache.cassandra.sidecar.tasks.PeriodicTask;
+import org.apache.cassandra.sidecar.tasks.PeriodicTaskExecutor;
 import org.apache.cassandra.sidecar.tasks.ScheduleDecision;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,6 +45,7 @@ public class SchemaReportingTask implements PeriodicTask, ExecuteOnClusterLeaseh
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaReportingTask.class);
     private static final ThreadLocalRandom RANDOM = ThreadLocalRandom.current();
+    private static final Duration MINUTE = Duration.ofMinutes(1L);
 
     @NotNull
     protected final SchemaReportingConfiguration configuration;
@@ -50,6 +53,8 @@ public class SchemaReportingTask implements PeriodicTask, ExecuteOnClusterLeaseh
     protected final CQLSessionProvider session;
     @NotNull
     protected final SchemaReporter reporter;
+
+    protected PeriodicTaskExecutor executor;
 
     @Inject
     public SchemaReportingTask(@NotNull SidecarConfiguration configuration,
@@ -59,6 +64,12 @@ public class SchemaReportingTask implements PeriodicTask, ExecuteOnClusterLeaseh
         this.configuration = configuration.schemaReportingConfiguration();
         this.session = session;
         this.reporter = reporter;
+    }
+
+    @Override
+    public void registerPeriodicTaskExecutor(@NotNull PeriodicTaskExecutor executor)
+    {
+        this.executor = executor;
     }
 
     @Override
@@ -85,17 +96,33 @@ public class SchemaReportingTask implements PeriodicTask, ExecuteOnClusterLeaseh
     }
 
     @Override
-    public void execute(Promise<Void> promise)
+    public void execute(@NotNull Promise<Void> promise)
+    {
+        execute(promise, 1);
+    }
+
+    protected void execute(@NotNull Promise<Void> promise,
+                           int attempt)
     {
         try
         {
+            LOGGER.info("Schema report has been triggered by the schedule");
             reporter.process(session.get().getCluster());
             promise.complete();
         }
         catch (Throwable throwable)
         {
-            LOGGER.error("Failed to convert and report the current schema", throwable);
-            promise.fail(throwable);
+            if (attempt < configuration.retries())
+            {
+                LOGGER.warn("Schema report has failed and will be retried soon", throwable);
+                executor.retry(MINUTE, () -> execute(promise, attempt + 1));
+                // Retry will take care of either completing or failing the promise
+            }
+            else
+            {
+                LOGGER.error("Schema report failing repeatedly and will not be retried", throwable);
+                promise.fail(throwable);
+            }
         }
     }
 }
